@@ -1,0 +1,30 @@
+{
+  "training_date": "2026-01-28T00:25:35.937468",
+  "data_source": "CSV",
+  "user_id": "all_users",
+  "n_samples": 192,
+  "n_features": 5,
+  "features": [
+    "distance_from_home",
+    "velocity",
+    "heading_change",
+    "hour",
+    "day_of_week"
+  ],
+  "contamination": 0.05,
+  "n_anomalies_detected": 10,
+  "anomaly_rate": 5.208333333333334,
+  "model_type": "IsolationForest",
+  "speed_stats": {
+    "min": 1.0,
+    "max": 6.1,
+    "mean": 2.3406249999999997,
+    "std": 1.5680433083157896
+  },
+  "location_range": {
+    "lat_min": 12.9714,
+    "lat_max": 12.9766,
+    "lng_min": 77.5944,
+    "lng_max": 77.5996
+  }
+}

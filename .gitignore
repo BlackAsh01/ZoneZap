@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+# Do not commit secrets – add these on each system from Firebase Console
+google-services.json
+*serviceAccount*.json
+*service-account*.json
+.firebaserc
+
+# Model files (large)
+*.pkl
+*.h5
+*.model
+
+# Logs
+*.log
+logs/
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+
+# Mobile app specific
+mobile-app/android/app/build/
+mobile-app/ios/build/
+mobile-app/.gradle/
+
+# Python
+venv/
+.venv/
+env/
+*.pyc
+

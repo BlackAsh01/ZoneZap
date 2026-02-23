@@ -1,0 +1,54 @@
+// Gradle init script to force Kotlin stdlib version globally
+// This ensures consistent Kotlin stdlib versions across all configurations
+
+gradle.beforeProject { project ->
+    project.afterEvaluate {
+        project.configurations.all { configuration ->
+            configuration.resolutionStrategy {
+                // Force Kotlin stdlib versions for all configurations
+                force 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21'
+                
+                // Replace any old Kotlin stdlib versions with 2.0.21
+                eachDependency { DependencyResolveDetails details ->
+                    if (details.requested.group == 'org.jetbrains.kotlin' && 
+                        (details.requested.name == 'kotlin-stdlib' || 
+                         details.requested.name == 'kotlin-stdlib-jdk7' || 
+                         details.requested.name == 'kotlin-stdlib-jdk8' ||
+                         details.requested.name == 'kotlin-stdlib-common')) {
+                        // Always use 2.0.21 regardless of what was requested
+                        details.useVersion '2.0.21'
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Also apply to buildscript configurations
+gradle.projectsLoaded {
+    gradle.allprojects { project ->
+        project.buildscript.configurations.all { configuration ->
+            configuration.resolutionStrategy {
+                force 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21'
+                
+                // Replace any old Kotlin stdlib versions with 2.0.21
+                eachDependency { DependencyResolveDetails details ->
+                    if (details.requested.group == 'org.jetbrains.kotlin' && 
+                        (details.requested.name == 'kotlin-stdlib' || 
+                         details.requested.name == 'kotlin-stdlib-jdk7' || 
+                         details.requested.name == 'kotlin-stdlib-jdk8' ||
+                         details.requested.name == 'kotlin-stdlib-common')) {
+                        // Always use 2.0.21 regardless of what was requested
+                        details.useVersion '2.0.21'
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection
+    match /users/{userId} {
+      // Allow get (single document read) if:
+      // 1. User owns it
+      // 2. Is already a guardian (in guardians array)
+      // 3. Is a guardian trying to add a ward (can read user documents of type "user")
+      allow get: if request.auth != null && (
+        request.auth.uid == userId || 
+        ('guardians' in resource.data && request.auth.uid in resource.data.guardians) ||
+        // Allow guardians to read user documents (to add themselves as guardian)
+        (resource.data.type == "user" && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.type == "guardian")
+      );
+      // Allow list (query) for authenticated users - queries filter by guardians array
+      allow list: if request.auth != null;
+      // Allow update if:
+      // 1. User owns it
+      // 2. Guardian is updating to add themselves to guardians array or update wards array
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        // Allow guardians to update user documents to add themselves to guardians array
+        // Check if requester is a guardian and target is a user
+        (resource.data.type == "user" &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.type == "guardian")
+      );
+      // Allow create only for own document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow delete only for own document
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Alerts collection
+    match /alerts/{alertId} {
+      // Allow get (single document read) if user owns the alert or is a guardian
+      allow get: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && 
+         'guardians' in get(/databases/$(database)/documents/users/$(resource.data.userId)).data &&
+         request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.userId)).data.guardians)
+      );
+      // Allow list (query) for authenticated users - queries filter by userId so only relevant alerts are returned
+      allow list: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(resource.data.userId)) &&
+         'guardians' in get(/databases/$(database)/documents/users/$(resource.data.userId)).data &&
+         request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.userId)).data.guardians)
+      );
+    }
+
+    // Reminders collection
+    match /reminders/{reminderId} {
+      // Allow get (single document read) if user owns the reminder
+      // OR if guardian created it (check user document only if it exists and has guardians field)
+      allow get: if request.auth != null && (
+        // User owns the reminder - always allow
+        resource.data.userId == request.auth.uid ||
+        // Guardian access - check only if user document exists
+        (resource.data.userId != request.auth.uid &&
+         exists(/databases/$(database)/documents/users/$(resource.data.userId)) && 
+         'guardians' in get(/databases/$(database)/documents/users/$(resource.data.userId)).data &&
+         request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.userId)).data.guardians)
+      );
+      // Allow list (query) for authenticated users
+      // The query filters by userId, so users can only see their own reminders
+      // Guardians can query their wards' reminders through the get rule above
+      allow list: if request.auth != null;
+      // Allow create if user creates for themselves OR guardian creates for their ward
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.resource.data.userId)) &&
+         'guardians' in get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data &&
+         request.auth.uid in get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.guardians)
+      );
+      // Allow update/delete if user owns the reminder
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Movement logs collection
+    match /movement_logs/{logId} {
+      // Allow get (single document read) if user owns the log or is a guardian
+      allow get: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(resource.data.userId)) &&
+         'guardians' in get(/databases/$(database)/documents/users/$(resource.data.userId)).data &&
+         request.auth.uid in get(/databases/$(database)/documents/users/$(resource.data.userId)).data.guardians)
+      );
+      // Allow list (query) for authenticated users - queries filter by userId so only relevant logs are returned
+      allow list: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Alert logs (admin/system only)
+    match /alert_logs/{logId} {
+      allow read, write: if false; // Only accessible via Cloud Functions
+    }
+  }
+}

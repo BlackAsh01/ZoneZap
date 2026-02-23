@@ -1,0 +1,40 @@
+// Top-level build file
+buildscript {
+    ext.kotlin_version = '2.0.21'
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.2'
+    }
+    
+    // Force Kotlin stdlib versions in buildscript classpath
+    configurations.classpath {
+        resolutionStrategy {
+            force 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21'
+            
+            // Replace any old Kotlin stdlib versions with 2.0.21
+            eachDependency { DependencyResolveDetails details ->
+                if (details.requested.group == 'org.jetbrains.kotlin' && 
+                    (details.requested.name == 'kotlin-stdlib' || 
+                     details.requested.name == 'kotlin-stdlib-jdk7' || 
+                     details.requested.name == 'kotlin-stdlib-jdk8' ||
+                     details.requested.name == 'kotlin-stdlib-common')) {
+                    // Always use 2.0.21 regardless of what was requested
+                    details.useVersion '2.0.21'
+                }
+            }
+        }
+    }
+}
+
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

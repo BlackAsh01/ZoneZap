@@ -1,0 +1,27 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    
+    // Force Kotlin stdlib version for plugins
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.namespace == 'org.jetbrains.kotlin') {
+                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21")
+            }
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "ZoneZap"
+include ':app'

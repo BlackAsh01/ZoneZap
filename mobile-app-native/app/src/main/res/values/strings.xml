@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoneZap</string>
+    <string name="welcome">Welcome</string>
+    <string name="login">Login</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="logout">Logout</string>
+    <string name="current_location">Current Location</string>
+    <string name="upcoming_reminders">Upcoming Reminders</string>
+    <string name="emergency_panic">Emergency Panic</string>
+    <string name="panic_button">PANIC BUTTON</string>
+    <string name="report_wandering">Report Wandering</string>
+    <string name="reminders">Reminders</string>
+    <string name="no_reminders">No reminders scheduled</string>
+    <string name="add_reminder">Add Reminder</string>
+    <string name="location_permission_title">Location Permission</string>
+    <string name="location_permission_message">ZoneZap needs access to your location for safety tracking</string>
+    <string name="alert_sent">Alert Sent</string>
+    <string name="emergency_alert_sent">Your emergency alert has been sent to all registered guardians. Help is on the way!</string>
+</resources>
