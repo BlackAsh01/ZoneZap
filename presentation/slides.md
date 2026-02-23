@@ -4,12 +4,12 @@
 
 **ZoneZap: A Context-Aware Safety System for Cognitively Impaired Patients**
 
-*Using Geofencing and AI-Based Anomaly Detection*
+*Using Real-Time Location Tracking and AI-Based Anomaly Detection*
 
 - Student Name
 - Student Name
 - Supervisor Name
-- University Name
+- School of Management Studies, Vels University (VISTAS)
 - Date
 
 ---
@@ -26,7 +26,7 @@
   - Impractical (physical restraints)
   - Invasive (compromises dignity)
 
-**Our Solution**: ZoneZap - Intelligent, mobile-based safety monitoring
+**Our Solution**: ZoneZap — a mobile-based safety system with real-time alerts and AI-powered wandering detection for users and their guardians.
 
 ---
 
@@ -41,33 +41,36 @@
 | Smart Homes | Indoor monitoring | Fixed location, expensive |
 | Manual Supervision | Reliable | Costly, not scalable |
 
-**Gap**: No system combines real-time AI analysis with mobile geofencing
+**Gap**: Few systems combine real-time AI analysis with a dedicated mobile app and guardian notification.
 
 ---
 
 ## Slide 4: Proposed Solution
 
-**ZoneZap - Key Features**
+**ZoneZap — Key Features**
 
-✅ **Real-time Location Tracking**
-- Continuous GPS monitoring
-- Background service operation
-- Low battery consumption
+✅ **Real-Time Location Tracking**
+- Continuous GPS via Android Fused Location Provider
+- Location logs stored in the cloud (Firestore)
+- Configurable update intervals and distance filter
 
 ✅ **AI-Powered Anomaly Detection**
-- Isolation Forest algorithm
-- Detects wandering patterns
-- 95% accuracy rate
+- Isolation Forest algorithm (Python + Cloud Functions)
+- Detects high speed and erratic movement patterns
+- Automatic wandering alerts to guardians
 
-✅ **Geofencing**
-- Safe zones and restricted areas
-- Automatic boundary alerts
-- Customizable zones
+✅ **Dual Roles: User & Guardian**
+- **Users (wards):** Use location, reminders, and panic button
+- **Guardians:** Add wards by email, receive panic and wandering alerts, create reminders for wards
 
 ✅ **Emergency Panic Button**
 - One-touch emergency alert
-- Instant guardian notification
-- Location sharing
+- Instant guardian notification via FCM with location
+- Cloud Function processes alerts in real time
+
+✅ **Reminders**
+- Users and guardians can create reminders (title, time)
+- Scheduled Cloud Function checks overdue reminders every 5 minutes and sends push notifications
 
 ---
 
@@ -77,274 +80,232 @@
 
 ```
 ┌─────────────────────────────────────┐
-│   Mobile Application (React Native) │
-│   - Location Tracking               │
-│   - User Interface                  │
-│   - Emergency Controls              │
+│   Mobile Application (Android)      │
+│   Kotlin • Material Design          │
+│   - Login (User / Guardian mode)    │
+│   - Home: location, reminders, panic │
+│   - Reminders, Panic, Guardian UI   │
+│   - LocationService, EmergencyService│
 └──────────────┬──────────────────────┘
-               │
+               │ Firebase Auth & Firestore
                ▼
 ┌─────────────────────────────────────┐
 │   Cloud Backend (Firebase)           │
-│   - Firestore Database               │
-│   - Cloud Functions                  │
-│   - Push Notifications               │
+│   - Firestore (users, alerts,       │
+│     reminders, movement_logs)      │
+│   - Cloud Functions (Node.js 18)    │
+│     • onEmergencyAlert               │
+│     • analyzeLocationPatterns       │
+│     • checkOverdueReminders          │
+│   - Firebase Cloud Messaging (FCM)  │
 └──────────────┬──────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────┐
-│   AI Engine (Python)                 │
-│   - Isolation Forest Model           │
-│   - Anomaly Detection                │
-│   - Pattern Analysis                 │
+│   AI Engine (Python)                │
+│   - Isolation Forest (scikit-learn)  │
+│   - Train on Firestore or CSV        │
+│   - Anomaly prediction (optional)   │
 └─────────────────────────────────────┘
 ```
 
 ---
 
-## Slide 6: Entity Relationship Diagram
+## Slide 6: Data Model (Firestore)
 
-**Database Schema**
+**Collections & Key Fields**
 
 ```
-Users
-├── userId (PK)
-├── email
-├── name
-├── guardians[]
-├── home_location
-└── fcmToken
+users
+├── userId (doc id = Auth UID)
+├── email, name
+├── type: "user" | "guardian"
+├── guardians[]     (for type "user")
+├── wards[]         (for type "guardian")
+├── fcmToken
+└── createdAt, updatedAt
 
-Alerts
-├── alertId (PK)
-├── userId (FK)
-├── alertType
-├── location
-├── timestamp
-└── status
+alerts
+├── alertId (doc id)
+├── userId, alertType (PANIC | WANDERING)
+├── level, location { lat, lng }
+├── timestamp, status
+└── anomalies[] (from Cloud Function)
 
-Reminders
-├── reminderId (PK)
-├── userId (FK)
-├── title
-├── scheduledTime
-└── isCompleted
+reminders
+├── reminderId (doc id)
+├── userId (ward)
+├── title, description, scheduledTime
+├── isCompleted
+└── createdBy (guardian, optional)
 
-Movement_Logs
-├── logId (PK)
-├── userId (FK)
-├── latitude
-├── longitude
-├── timestamp
-└── speed
+movement_logs
+├── logId (doc id)
+├── userId
+├── latitude, longitude, timestamp
+└── speed, heading, accuracy
 ```
 
 ---
 
-## Slide 7: Mobile App Features
+## Slide 7: Mobile App — Screens & Roles
 
-**User Interface Screens**
+**User (Ward) Flow**
 
-1. **Login Screen**
-   - Email/Password authentication
-   - Secure Firebase Auth
+1. **Login** — Email/password; choose **User** or **Guardian** mode
+2. **Home** — Current location, upcoming reminders, panic button, FAB to reminders
+3. **Panic** — Dedicated screen to trigger emergency alert (notifies all guardians)
+4. **Reminders** — List, create, edit, and mark reminders complete
 
-2. **Home Screen**
-   - Current location display
-   - Upcoming reminders
-   - Quick access to emergency
+**Guardian Flow**
 
-3. **Panic Screen**
-   - Large emergency button
-   - Wandering alert option
-   - Location sharing
+1. **Login** — Same auth; choose **Guardian** mode
+2. **Guardian** — Add wards by email, view wards, create reminders for wards; receives FCM for panic and wandering alerts
 
-4. **Reminder Screen**
-   - Medication reminders
-   - Appointment notifications
-   - Task scheduling
-
-**Design**: Material Design, accessible, large touch targets
+**Tech**: Native Android (Kotlin), Material Design, Coroutines, Firebase SDK, Fused Location Provider.
 
 ---
 
-## Slide 8: AI Pipeline
+## Slide 8: Backend — Cloud Functions
 
-**Anomaly Detection Process**
+**Three Functions (Node.js)**
+
+| Function | Trigger | Action |
+|----------|---------|--------|
+| **onEmergencyAlert** | Firestore: `alerts/{id}` onCreate | Read user’s guardians → send FCM to each with alert details and location |
+| **analyzeLocationPatterns** | Firestore: `movement_logs/{id}` onCreate | Fetch last 30 logs for user → run anomaly logic (speed > 5 m/s or high variance) → if anomaly, create WANDERING alert (guardians notified via onEmergencyAlert) |
+| **checkOverdueReminders** | Schedule: every 5 min | Query reminders where not completed and scheduledTime ≤ now → send FCM to user |
+
+**Anomaly logic (in Cloud Function):** HIGH_SPEED if average speed > 5 m/s; ERRATIC_MOVEMENT if distance variance > threshold. Uses Haversine distance.
+
+---
+
+## Slide 9: AI Pipeline (Python)
+
+**Anomaly Detection — Training & Prediction**
 
 ```
-Location Data
+Location Data (Firestore movement_logs or CSV)
     │
     ▼
 Feature Extraction
 ├── Distance from home
 ├── Velocity
 ├── Heading change
-└── Temporal features
+└── Hour, day of week
     │
     ▼
-Isolation Forest Model
-├── Training: 10,000 samples
-├── Contamination: 5%
-└── Real-time prediction
+Isolation Forest (scikit-learn)
+├── Training: train.py / train_with_firebase.py
+├── Contamination: configurable (e.g. 5%)
+└── Output: model.pkl, training_report.json
     │
     ▼
-Anomaly Score
-├── Normal: Score > 0
-└── Anomaly: Score < 0
-    │
-    ▼
-Alert Generation (if anomaly)
+Prediction (predict.py)
+├── Normal: score ≈ 1
+└── Anomaly: score ≈ -1
 ```
 
-**Performance**: 95.2% accuracy, 3.2s response time
+**Usage**: Train on real Firestore data or CSV; optional integration with Cloud logic or batch analysis.
 
 ---
 
-## Slide 9: Results & Impact
+## Slide 10: Security & Privacy
 
-**Experimental Results**
+**Firestore Security Rules**
 
-| Metric | Result |
-|--------|--------|
-| Detection Accuracy | 95.2% |
-| False Positive Rate | 4.8% |
-| Response Time | 3.2 seconds |
-| System Uptime | 99.7% |
+- **users**: Read own doc; guardians can read wards; create/update only as owner or guardian (for linking).
+- **alerts**: Create only for own userId; read/update if owner or guardian of that user.
+- **reminders**: Create if owner or guardian of ward; read if owner or guardian; update/delete only owner.
+- **movement_logs**: Create only for own userId; read if owner or guardian.
+- **alert_logs**: Server-only (Cloud Functions); no client access.
 
-**User Study (10 patients, 4 weeks)**
-- ✅ 90% found interface intuitive
-- ✅ 85% of caregivers felt more confident
-- ✅ 60% reduction in emergency response time
-- ✅ 2 critical incidents prevented
-
-**Impact**: Improved safety, reduced caregiver stress, cost-effective solution
+**Other**
+- Firebase Auth (email/password); TLS for all traffic; no storage of credentials in app.
 
 ---
 
-## Slide 10: Technical Implementation
+## Slide 11: Technology Stack
 
-**Technology Stack**
+**Mobile**
+- Android (Kotlin), Material Design, AndroidX
+- Fused Location Provider, Coroutines
+- Firebase: Auth, Firestore, FCM
 
-**Frontend:**
-- React Native 0.72.6
-- React Navigation
-- React Native Paper
-- Firebase SDK
-
-**Backend:**
-- Firebase Firestore
-- Cloud Functions (Node.js)
+**Backend**
+- Firebase Firestore, Cloud Functions (Node.js 18)
 - Firebase Cloud Messaging
 
-**AI/ML:**
-- Python 3.9+
-- scikit-learn
-- Isolation Forest
-- pandas, numpy
+**AI**
+- Python 3.9+, scikit-learn (Isolation Forest), pandas, numpy
+- Firebase Admin SDK (for Firestore training data)
 
-**Deployment:**
-- Firebase Hosting
-- Cloud Functions
-- Mobile app stores (Android/iOS)
+**Deployment**
+- Firebase project (Blaze for Functions); Android APK (debug/release)
 
 ---
 
-## Slide 11: Security & Privacy
+## Slide 12: Main User Flows (Summary)
 
-**Security Measures**
+**Panic**
+- User taps panic → app writes to `alerts` → **onEmergencyAlert** → FCM to all guardians with location.
 
-🔒 **Data Encryption**
-- TLS/SSL for data transmission
-- Encrypted storage in Firestore
-- Secure authentication (Firebase Auth)
+**Wandering**
+- App writes location to `movement_logs` → **analyzeLocationPatterns** → if anomaly, create WANDERING alert → **onEmergencyAlert** → FCM to guardians.
 
-🔒 **Access Control**
-- Firestore security rules
-- User-based data isolation
-- Guardian permission system
+**Reminders**
+- User/Guardian creates reminder in `reminders` → every 5 min **checkOverdueReminders** → if overdue, FCM to user.
 
-🔒 **Privacy Protection**
-- User consent for location tracking
-- Data retention policies
-- GDPR compliance considerations
-
-**Compliance**: HIPAA considerations for healthcare data
+**Guardian–Ward link**
+- Guardian adds ward by email → UserService updates `users/{ward}.guardians` and `users/{guardian}.wards`.
 
 ---
 
-## Slide 12: Future Enhancements
+## Slide 13: Results & Impact
 
-**Roadmap**
+**System Capabilities**
 
-**Phase 1 (Current)**
-- ✅ Basic location tracking
-- ✅ Anomaly detection
-- ✅ Emergency alerts
+| Aspect | Description |
+|--------|-------------|
+| Alert delivery | FCM to guardians on panic and wandering alerts |
+| Reminder delivery | Scheduled check every 5 minutes; FCM to user |
+| Anomaly logic | In-cloud (speed/variance) + optional Python Isolation Forest |
+| Roles | Clear separation: User (ward) vs Guardian |
 
-**Phase 2 (Next 6 months)**
-- 🔄 Wearable device integration
-- 🔄 Indoor positioning (Bluetooth beacons)
-- 🔄 Guardian web dashboard
-
-**Phase 3 (Future)**
-- 🔮 Deep learning models
-- 🔮 Multi-language support
-- 🔮 Voice commands
-- 🔮 Integration with healthcare systems
+**Benefits**
+- Proactive safety through real-time location and anomaly detection
+- Immediate guardian notification on panic and wandering
+- Reminders support daily care
+- Scalable cloud backend (Firebase)
 
 ---
 
-## Slide 13: Challenges & Solutions
+## Slide 14: Future Enhancements
 
-**Technical Challenges**
+**Possible Extensions**
 
-| Challenge | Solution |
-|-----------|----------|
-| Battery consumption | Optimized location update intervals, background service optimization |
-| GPS accuracy | High-accuracy mode, fallback to network location |
-| Real-time processing | Cloud Functions for serverless scaling |
-| False positives | Continuous model refinement, user feedback loop |
-| Privacy concerns | Transparent data usage, user control, encryption |
-
-**Lessons Learned**: User feedback is critical, simplicity is key
-
----
-
-## Slide 14: Business Model
-
-**Market Opportunity**
-
-- **Target Market**: 60M+ dementia patients globally
-- **Market Size**: $XX billion healthcare monitoring market
-- **Competitive Advantage**: AI + Mobile + Real-time
-
-**Revenue Model** (Future)
-- Subscription-based (per patient/month)
-- Enterprise licensing (hospitals, care facilities)
-- White-label solutions
-
-**Scalability**: Cloud-based architecture supports millions of users
+- **Geofencing** — Safe/restricted zones; alerts on boundary crossing
+- **Guardian web dashboard** — View wards and alerts in a browser
+- **Wearable integration** — Heart rate, fall detection
+- **Indoor positioning** — Bluetooth beacons
+- **Stronger AI** — Use Python model output in Cloud Functions or real-time pipeline
+- **Multi-language** — Localization for wider deployment
 
 ---
 
 ## Slide 15: Conclusion
 
-**Key Takeaways**
+**Summary**
 
-✅ **Problem Solved**: Proactive safety monitoring for cognitively impaired patients
+✅ **Problem**: Safety monitoring for cognitively impaired users (wards) and peace of mind for guardians.
 
-✅ **Innovation**: First system combining AI anomaly detection with mobile geofencing
+✅ **Solution**: ZoneZap — Native Android app (User + Guardian), Firebase backend, real-time alerts (panic + wandering), reminders, and optional AI engine.
 
-✅ **Results**: 95% accuracy, 60% faster response times, high user satisfaction
+✅ **Architecture**: Mobile (Kotlin) → Firestore + Cloud Functions → FCM; Python AI for training and optional prediction.
 
-✅ **Impact**: Improved safety, reduced caregiver burden, cost-effective solution
+✅ **Security**: Firestore rules enforce user/guardian access; Auth and TLS in place.
 
-✅ **Future**: Scalable platform ready for expansion
-
-**Thank You!**
-
-**Questions?**
+**Thank you. Questions?**
 
 ---
 
@@ -352,39 +313,30 @@ Alert Generation (if anomaly)
 
 **Live Demonstration**
 
-1. Open ZoneZap mobile app
-2. Show location tracking
-3. Demonstrate panic button
-4. Show reminder system
-5. Display guardian notification
-6. Show anomaly detection in action
+1. Open ZoneZap Android app; show Login (User vs Guardian).
+2. As User: show Home (location), reminders list, panic button.
+3. Trigger panic; show guardian device receiving FCM.
+4. As Guardian: add ward by email; create a reminder for ward.
+5. (Optional) Show Firestore data or Cloud Function logs.
 
-**Key Points to Highlight:**
-- Intuitive interface
-- Fast response times
-- Real-time updates
-- Seamless user experience
+**Points to highlight:** Clear roles, real-time alerts, simple UI, cloud-scalable design.
 
 ---
 
-## Additional Notes for Presenter
+## Presenter Notes
 
-**Talking Points:**
+**Talking points**
+- Slide 2: Emphasize human impact — families and caregivers.
+- Slide 5: Walk through data flow: app → Firestore → Functions → FCM.
+- Slide 8: Explain how panic and wandering both use the same alert pipeline (onEmergencyAlert).
+- Slide 11: Clarify Native Android (Kotlin) vs React Native for accuracy.
 
-1. **Slide 2**: Emphasize the human impact - real families affected
-2. **Slide 5**: Explain how data flows through the system
-3. **Slide 8**: Walk through a specific example of anomaly detection
-4. **Slide 9**: Highlight the 2 prevented incidents - real impact
-5. **Slide 11**: Address privacy concerns proactively
-6. **Slide 13**: Show problem-solving approach
-
-**Time Allocation:**
-- Introduction: 2 min
-- Problem/Solution: 3 min
-- Architecture: 4 min
-- AI Pipeline: 3 min
-- Results: 3 min
-- Future/Conclusion: 2 min
-- Q&A: 3 min
-**Total: ~20 minutes**
-
+**Time (approx.)**
+- Intro & problem: 2 min  
+- Solution & architecture: 4 min  
+- Data model & flows: 3 min  
+- Backend & AI: 3 min  
+- Security, stack, results: 3 min  
+- Future & conclusion: 2 min  
+- Q&A: 3 min  
+**Total: ~20 min**

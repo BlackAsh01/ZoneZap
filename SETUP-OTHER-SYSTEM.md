@@ -2,6 +2,8 @@
 
 This guide explains how to run the **ZoneZap** project (backend, mobile app, and AI engine) on a **different computer**, including Firebase and all dependencies.
 
+**For someone cloning the repo (the other user):** do **Firebase setup** first (see section below), then follow **After `git clone`** to run the project.
+
 ---
 
 ## What This Project Contains
@@ -14,7 +16,221 @@ This guide explains how to run the **ZoneZap** project (backend, mobile app, and
 
 ---
 
+## Firebase setup for the other user
+
+Do this **once**, separately from cloning. You either use the existing Firebase project (Option A) or create a new one (Option B). At the end you will have two files: **google-services.json** and a **service account key** JSON. Place them as shown in **Step 3** of **After `git clone`**.
+
+### Option A: Use the existing Firebase project (zonezap-a6953)
+
+Use this if the project owner has given you access to the same Firebase project (same data, same app).
+
+1. **Get access**  
+   The project owner adds your Google account in [Firebase Console](https://console.firebase.google.com/) → **Project Settings** → **Users and permissions** → **Add member** (e.g. Viewer or Editor).
+
+2. **Download google-services.json**  
+   - Open [Firebase Console](https://console.firebase.google.com/) → select project **zonezap-a6953**.  
+   - **Project Settings** (gear) → **Your apps** → Android app (`com.zonezapapp`) → **Download google-services.json**.  
+   - Save the file (e.g. to Downloads). You will copy it to `mobile-app-native/app/google-services.json` in **Step 3** of **After `git clone`**.
+
+3. **Download the service account key**  
+   - **Project Settings** → **Service accounts**.  
+   - Click **Generate new private key** → confirm.  
+   - Save the JSON file (e.g. `firebase-service-account.json`).  
+   - You will copy it to `ai-engine/` in **Step 3** of **After `git clone`**.
+
+**Do not commit these files to Git.** They are already in `.gitignore`.
+
+### Option B: Create a new Firebase project
+
+Use this if you want your own Firebase project (separate data, e.g. for development).
+
+1. **Create the project**  
+   - Go to [Firebase Console](https://console.firebase.google.com/) → **Add project**.  
+   - Name it (e.g. "ZoneZap Dev") → follow the steps (Analytics optional).  
+   - Note the **Project ID** (e.g. `zonezap-dev-xxxxx`).
+
+2. **Enable Authentication**  
+   - In the project, go to **Build** → **Authentication** → **Get started**.  
+   - **Sign-in method** tab → **Email/Password** → Enable → **Save**.
+
+3. **Create Firestore**  
+   - **Build** → **Firestore Database** → **Create database**.  
+   - Choose a region → **Next**.  
+   - Start in **test mode** (we will deploy rules in a later step) → **Enable**.
+
+4. **Register the Android app**  
+   - **Project Overview** → click the Android icon.  
+   - **Android package name:** `com.zonezapapp` (must match the app).  
+   - Register app → **Download google-services.json**.  
+   - Save it; you will put it in `mobile-app-native/app/` in **Step 3** of **After `git clone`**.
+
+5. **Get the service account key**  
+   - **Project Settings** (gear) → **Service accounts**.  
+   - **Generate new private key** → confirm → save the JSON.  
+   - You will put a copy in `ai-engine/` in **Step 3** of **After `git clone`**.
+
+6. **Link the repo to this Firebase project and deploy (after cloning)**  
+   From the **project root** (after you have cloned the repo):
+
+   ```bash
+   cd backend
+   firebase login
+   firebase use --add
+   ```
+   Select your new project and give it an alias (e.g. `default`).
+
+   ```bash
+   firebase deploy --only firestore
+   cd functions
+   npm install
+   cd ..
+   firebase deploy --only functions
+   cd ..
+   ```
+
+   When following **After `git clone`**, use **Step 4** but run `firebase use --add` and choose this project instead of `zonezap-a6953` (or run `firebase use <your-project-id>`).
+
+---
+
+## After `git clone` – steps to run the project
+
+Follow these **after** you have completed **Firebase setup for the other user** (above) and have the two config files ready.
+
+### Step 1: Clone the repo
+
+```bash
+git clone https://github.com/BlackAsh01/ZoneZap.git
+cd ZoneZap
+```
+
+### Step 2: Install prerequisites
+
+Install these if not already installed:
+
+- **Node.js 18+** – download from [nodejs.org](https://nodejs.org), then run the installer.
+- **Firebase CLI** – run in terminal: `npm install -g firebase-tools`
+- **Python 3.9+** – download from [python.org](https://www.python.org/downloads/) or use your OS package manager.
+- **Android Studio** – download from [developer.android.com/studio](https://developer.android.com/studio); install JDK 17 when prompted.
+
+**Verify installations (run these in a new terminal):**
+
+```bash
+node --version
+npm --version
+firebase --version
+python --version
+```
+
+If `firebase` is not found, install it:
+
+```bash
+npm install -g firebase-tools
+```
+
+### Step 3: Add the Firebase config files (from Firebase setup)
+
+You should already have these two files from **Firebase setup for the other user** (Option A or B above). Put them in the project as follows:
+
+| File | Put it here |
+|------|-------------|
+| **google-services.json** | `mobile-app-native/app/google-services.json` |
+| **Service account key** (e.g. `firebase-service-account.json`) | `ai-engine/` |
+
+**Copy commands (adjust paths if your clone or download location is different):**
+
+```bash
+# Windows (PowerShell) – if files are in Downloads
+Copy-Item "$env:USERPROFILE\Downloads\google-services.json" -Destination "mobile-app-native\app\google-services.json"
+Copy-Item "$env:USERPROFILE\Downloads\firebase-service-account.json" -Destination "ai-engine\firebase-service-account.json"
+```
+
+```bash
+# macOS / Linux – if files are in Downloads
+cp ~/Downloads/google-services.json mobile-app-native/app/
+cp ~/Downloads/firebase-service-account.json ai-engine/
+```
+
+### Step 4: Backend – Firebase and Cloud Functions
+
+From the **project root** (the `ZoneZap` folder):
+
+```bash
+cd backend
+firebase login
+firebase use zonezap-a6953
+cd functions
+npm install
+cd ..
+firebase deploy --only firestore
+firebase deploy --only functions
+cd ..
+```
+
+*(If you use a different Firebase project, run `firebase use --add` and pick that project instead of `zonezap-a6953`.)*
+
+### Step 5: Mobile app – build and run
+
+1. Ensure **google-services.json** is in `mobile-app-native/app/`.
+2. Open **Android Studio** → **File** → **Open** → select the `mobile-app-native` folder → **OK**.
+3. Wait for Gradle sync to finish.
+4. Connect a device or start an emulator (**Tools** → **Device Manager**), then click **Run** (green play button) or press `Shift+F10`.
+
+**Optional – build from command line (from project root):**
+
+```bash
+cd mobile-app-native
+./gradlew assembleDebug
+cd ..
+```
+
+The APK will be at `mobile-app-native/app/build/outputs/apk/debug/app-debug.apk`. Install it on a device or run with `./gradlew installDebug` (device connected).
+
+### Step 6: AI engine (optional – for training/prediction)
+
+From the **project root**:
+
+```bash
+cd ai-engine
+python -m venv .venv
+```
+
+**Activate the virtual environment:**
+
+```bash
+# Windows (PowerShell or CMD)
+.venv\Scripts\activate
+
+# Windows (Git Bash)
+source .venv/Scripts/activate
+
+# macOS / Linux
+source .venv/bin/activate
+```
+
+**Install dependencies and run training:**
+
+```bash
+pip install -r requirements.txt
+python train_with_firebase.py
+```
+
+If your service account key has a different name:
+
+```bash
+python train.py --firebase-cred firebase-service-account.json
+```
+
+Return to project root when done:
+
+```bash
+cd ..
+```
+
+---
+
 ## Option A: Use the Same Firebase Project (zonezap-a6953)
+
+*(Summary: **Firebase setup for the other user** → Option A above. This section adds extra detail.)*
 
 If you want to use the **existing** Firebase project (same data, same app):
 
@@ -89,6 +305,8 @@ python train_with_firebase.py
 ---
 
 ## Option B: Create a New Firebase Project (Fresh Setup)
+
+*(Summary: **Firebase setup for the other user** → Option B above. This section adds extra detail and commands.)*
 
 Use this when you want a **new** Firebase project (e.g. for a new team or environment).
 
