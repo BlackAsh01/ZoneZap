@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Scheduler as Pub/Sub Schedule<br/>every 5 min
+    participant CF as Cloud Function<br/>checkOverdueReminders
+    participant Firestore
+    participant FCM
+    participant User
+
+    Scheduler->>CF: Trigger
+    CF->>Firestore: Query reminders (isCompleted=false, scheduledTime <= now)
+    loop For each overdue reminder
+        CF->>Firestore: Read users/{userId}.fcmToken
+        CF->>FCM: Send reminder notification
+        FCM->>User: Push (Reminder: title)
+    end

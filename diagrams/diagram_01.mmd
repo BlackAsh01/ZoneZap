@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph Client["Client Layer"]
+        APP["Android App (Kotlin)<br/>Login · Home · Panic · Reminders · Guardian"]
+    end
+
+    subgraph Firebase["Firebase Backend"]
+        AUTH["Authentication<br/>Email/Password"]
+        FS["Firestore<br/>users · alerts · reminders · movement_logs · alert_logs"]
+        CF["Cloud Functions<br/>onEmergencyAlert · analyzeLocationPatterns · checkOverdueReminders"]
+        FCM["FCM<br/>Push Notifications"]
+    end
+
+    subgraph AI["Optional AI Layer"]
+        PY["AI Engine (Python)<br/>Train on movement_logs · Predict anomalies"]
+    end
+
+    subgraph Devices["End Devices"]
+        USR["Users / Wards<br/>Receive reminders"]
+        GUA["Guardians<br/>Receive panic & wandering alerts"]
+    end
+
+    APP -->|"Auth"| AUTH
+    APP -->|"Read/Write"| FS
+    FS -->|"Triggers"| CF
+    CF -->|"Send"| FCM
+    FCM --> USR
+    FCM --> GUA
+    PY <-->|"Read/Write"| FS

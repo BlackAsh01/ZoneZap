@@ -12,16 +12,15 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputEditText
 import com.zonezapapp.R
-import com.zonezapapp.config.FirebaseConfig
+import com.zonezapapp.api.AuthManager
 import com.zonezapapp.data.EmergencyAlert
 import com.zonezapapp.data.LocationData
 import com.zonezapapp.data.Reminder
+import com.zonezapapp.services.EmergencyService
 import com.zonezapapp.services.ReminderService
 import com.zonezapapp.services.UserService
 import com.zonezapapp.services.WardLocationService
 import com.zonezapapp.ui.login.LoginActivity
-import com.google.firebase.Timestamp
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 
 class GuardianActivity : AppCompatActivity() {
@@ -38,13 +37,14 @@ class GuardianActivity : AppCompatActivity() {
     }
     private val userService = UserService()
     private val wardLocationService = WardLocationService()
+    private val emergencyService = EmergencyService()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_guardian)
 
         // Check authentication
-        if (FirebaseConfig.auth.currentUser == null) {
+        if (!AuthManager.isLoggedIn()) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
@@ -83,55 +83,14 @@ class GuardianActivity : AppCompatActivity() {
     private fun loadAlerts() {
         lifecycleScope.launch {
             try {
-                val guardianId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
-                
-                // Get all users where this guardian is in their guardians list
-                val usersSnapshot = FirebaseConfig.firestore.collection("users")
-                    .whereArrayContains("guardians", guardianId)
-                    .get()
-                    .await()
-
-                val wardIds = usersSnapshot.documents.map { it.id }
-                
+                val wardIds = AuthManager.getUser()?.wards ?: emptyList()
                 if (wardIds.isEmpty()) {
                     noAlertsText.text = "No wards assigned"
                     noAlertsText.visibility = android.view.View.VISIBLE
                     return@launch
                 }
-
-                // Get active alerts for all wards
-                val alerts = mutableListOf<EmergencyAlert>()
-                val userIdToNameMap = mutableMapOf<String, String>() // Cache user names
-                
-                wardIds.forEach { wardId ->
-                    val alertsSnapshot = FirebaseConfig.firestore.collection("alerts")
-                        .whereEqualTo("userId", wardId)
-                        .whereEqualTo("status", "ACTIVE")
-                        .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                        .limit(10)
-                        .get()
-                        .await()
-                    
-                    alerts.addAll(alertsSnapshot.documents.map { EmergencyAlert.fromDocument(it) })
-                    
-                    // Fetch user info for this ward if not already cached
-                    if (!userIdToNameMap.containsKey(wardId)) {
-                        try {
-                            val userDoc = FirebaseConfig.firestore.collection("users")
-                                .document(wardId)
-                                .get()
-                                .await()
-                            val userData = userDoc.data ?: emptyMap()
-                            val userName = userData["name"] as? String
-                            val userEmail = userData["email"] as? String
-                            userIdToNameMap[wardId] = userName ?: userEmail ?: wardId
-                        } catch (e: Exception) {
-                            android.util.Log.e("GuardianActivity", "Error fetching user info", e)
-                            userIdToNameMap[wardId] = wardId // Fallback to UID
-                        }
-                    }
-                }
-
+                val alerts = emergencyService.getAlertsForWards(wardIds)
+                val userIdToNameMap = wardIds.associateWith { "Ward ${it.take(8)}" }
                 if (alerts.isEmpty()) {
                     noAlertsText.text = "No active alerts"
                     noAlertsText.visibility = android.view.View.VISIBLE
@@ -139,9 +98,8 @@ class GuardianActivity : AppCompatActivity() {
                 } else {
                     noAlertsText.visibility = android.view.View.GONE
                     alertsRecyclerView.visibility = android.view.View.VISIBLE
-                    // Pass user name map to adapter
                     alertsAdapter.setUserNameMap(userIdToNameMap)
-                    alertsAdapter.submitList(alerts.sortedByDescending { it.timestamp?.toDate()?.time ?: 0L })
+                    alertsAdapter.submitList(alerts)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error loading alerts", e)
@@ -153,26 +111,16 @@ class GuardianActivity : AppCompatActivity() {
     private fun loadWards() {
         lifecycleScope.launch {
             try {
-                val guardianId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
-                
-                val usersSnapshot = FirebaseConfig.firestore.collection("users")
-                    .whereArrayContains("guardians", guardianId)
-                    .get()
-                    .await()
-
-                val wards = usersSnapshot.documents.mapNotNull { doc ->
-                    val data = doc.data ?: emptyMap()
-                    val wardId = doc.id
-                    // Fetch latest location for each ward
+                val wardIds = AuthManager.getUser()?.wards ?: emptyList()
+                val wards = wardIds.map { wardId ->
                     val location = wardLocationService.getLatestWardLocation(wardId)
                     Ward(
                         id = wardId,
-                        name = data["name"] as? String ?: data["email"] as? String ?: "Unknown",
-                        email = data["email"] as? String ?: "",
+                        name = "Ward ${wardId.take(8)}",
+                        email = "",
                         latestLocation = location
                     )
                 }
-
                 if (wards.isEmpty()) {
                     noWardsText.text = "No wards assigned to you"
                     noWardsText.visibility = android.view.View.VISIBLE
@@ -189,71 +137,20 @@ class GuardianActivity : AppCompatActivity() {
     }
 
     private fun showAlertDetails(alert: EmergencyAlert) {
-        // Fetch user information to display name/email instead of UID
-        lifecycleScope.launch {
-            try {
-                val userDoc = FirebaseConfig.firestore.collection("users")
-                    .document(alert.userId)
-                    .get()
-                    .await()
-                
-                val userData = userDoc.data ?: emptyMap()
-                val userName = userData["name"] as? String
-                val userEmail = userData["email"] as? String
-                val displayName = userName ?: userEmail ?: alert.userId
-                
-                val timeString = alert.timestamp?.toDate()?.toString() ?: "Unknown"
-                val locationString = if (alert.location != null) {
-                    "${alert.location.latitude}, ${alert.location.longitude}"
-                } else {
-                    "Not available"
-                }
-                
-                android.app.AlertDialog.Builder(this@GuardianActivity)
-                    .setTitle("Emergency Alert: ${alert.alertType}")
-                    .setMessage(
-                        "From: $displayName\n" +
-                        "Email: ${userEmail ?: "N/A"}\n" +
-                        "Time: $timeString\n" +
-                        "Status: ${alert.status}\n" +
-                        "Location: $locationString"
-                    )
-                    .setPositiveButton("Mark as Resolved") { _, _ ->
-                        resolveAlert(alert.id)
-                    }
-                    .setNegativeButton("Close", null)
-                    .show()
-            } catch (e: Exception) {
-                android.util.Log.e("GuardianActivity", "Error fetching user info for alert", e)
-                // Fallback to showing UID if user fetch fails
-                android.app.AlertDialog.Builder(this@GuardianActivity)
-                    .setTitle("Emergency Alert: ${alert.alertType}")
-                    .setMessage(
-                        "From: ${alert.userId}\n" +
-                        "Time: ${alert.timestamp?.toDate()}\n" +
-                        "Status: ${alert.status}\n" +
-                        if (alert.location != null) {
-                            "Location: ${alert.location.latitude}, ${alert.location.longitude}"
-                        } else {
-                            "Location: Not available"
-                        }
-                    )
-                    .setPositiveButton("Mark as Resolved") { _, _ ->
-                        resolveAlert(alert.id)
-                    }
-                    .setNegativeButton("Close", null)
-                    .show()
-            }
-        }
+        val displayName = "Ward ${alert.userId.take(8)}"
+        val locationString = if (alert.location != null) "${alert.location.latitude}, ${alert.location.longitude}" else "Not available"
+        android.app.AlertDialog.Builder(this@GuardianActivity)
+            .setTitle("Emergency Alert: ${alert.alertType}")
+            .setMessage("From: $displayName\nTime: ${alert.timestamp?.toDate()}\nStatus: ${alert.status}\nLocation: $locationString")
+            .setPositiveButton("Mark as Resolved") { _, _ -> resolveAlert(alert.id) }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun resolveAlert(alertId: String) {
         lifecycleScope.launch {
             try {
-                FirebaseConfig.firestore.collection("alerts").document(alertId)
-                    .update("status", "RESOLVED")
-                    .await()
-                
+                emergencyService.updateAlertStatus(alertId, "RESOLVED")
                 Toast.makeText(this@GuardianActivity, "Alert resolved", Toast.LENGTH_SHORT).show()
                 loadAlerts()
             } catch (e: Exception) {
@@ -369,7 +266,7 @@ class GuardianActivity : AppCompatActivity() {
     private fun addReminderForWard(wardId: String, title: String, description: String) {
         lifecycleScope.launch {
             try {
-                val guardianId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
+                val guardianId = AuthManager.getUserId() ?: return@launch
                 val scheduledTime = java.util.Date(System.currentTimeMillis() + 3600000) // 1 hour from now
 
                 val reminder = Reminder(
@@ -429,7 +326,7 @@ class GuardianActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                val guardianId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
+                val guardianId = AuthManager.getUserId() ?: return@launch
                 val userId = user["userId"] as? String ?: return@launch
 
                 val success = userService.addWardToGuardian(guardianId, userId)
@@ -447,7 +344,7 @@ class GuardianActivity : AppCompatActivity() {
     }
 
     private fun logout() {
-        FirebaseConfig.auth.signOut()
+        AuthManager.clear()
         // Wait a moment for signOut to complete, then navigate
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             val intent = Intent(this, LoginActivity::class.java).apply {

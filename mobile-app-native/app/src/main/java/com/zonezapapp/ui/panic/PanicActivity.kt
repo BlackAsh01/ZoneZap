@@ -10,7 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.zonezapapp.R
-import com.zonezapapp.config.FirebaseConfig
+import com.zonezapapp.api.AuthManager
 import com.zonezapapp.services.EmergencyService
 import com.zonezapapp.services.LocationService
 import kotlinx.coroutines.launch
@@ -89,7 +89,7 @@ class PanicActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                val userId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
+                val userId = AuthManager.getUserId() ?: return@launch
                 val location = locationService.getCurrentLocation()
 
                 emergencyService.sendEmergencyAlert(
@@ -118,7 +118,7 @@ class PanicActivity : AppCompatActivity() {
     private fun handleWandering() {
         lifecycleScope.launch {
             try {
-                val userId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
+                val userId = AuthManager.getUserId() ?: return@launch
                 val location = locationService.getCurrentLocation()
 
                 emergencyService.sendEmergencyAlert(

@@ -1,0 +1,7 @@
+flowchart TD
+    A[User / Guardian actions] --> B[Android App]
+    B --> C[Firestore]
+    C --> D{Event type?}
+    D -->|New alert| E[onEmergencyAlert → FCM → Guardians]
+    D -->|New movement_log| F[analyzeLocationPatterns → anomaly? → FCM]
+    D -->|Schedule 5 min| G[checkOverdueReminders → FCM → Users]

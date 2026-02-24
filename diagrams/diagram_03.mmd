@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant User
+    participant App as Android App
+    participant Firestore
+    participant CF as Cloud Function<br/>onEmergencyAlert
+    participant FCM
+    participant Guardian
+
+    User->>App: Tap panic button
+    App->>Firestore: Create alert doc (PANIC, userId, location)
+    Firestore->>CF: onCreate trigger
+    CF->>Firestore: Read users/{userId} → guardians[]
+    loop For each guardian
+        CF->>Firestore: Read users/{guardianId}.fcmToken
+        CF->>FCM: Send notification
+        FCM->>Guardian: Push (Emergency Alert)
+    end
+    CF->>Firestore: Write alert_logs

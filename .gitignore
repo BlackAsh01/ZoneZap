@@ -9,6 +9,7 @@ __pycache__/
 # Build outputs
 build/
 dist/
+.next/
 *.egg-info/
 
 # Environment variables

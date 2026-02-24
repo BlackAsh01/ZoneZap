@@ -12,7 +12,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.zonezapapp.R
-import com.zonezapapp.config.FirebaseConfig
+import com.zonezapapp.api.AuthManager
 import com.zonezapapp.data.Reminder
 import com.zonezapapp.services.ReminderService
 import com.google.firebase.Timestamp
@@ -51,7 +51,7 @@ class RemindersActivity : AppCompatActivity() {
     }
 
     private fun loadReminders() {
-        val userId = FirebaseConfig.auth.currentUser?.uid ?: return
+        val userId = AuthManager.getUserId() ?: return
         lifecycleScope.launch {
             reminderService.getUserRemindersFlow(userId)
                 .onEach { reminders ->
@@ -86,7 +86,7 @@ class RemindersActivity : AppCompatActivity() {
     private fun addReminder(title: String, description: String) {
         lifecycleScope.launch {
             try {
-                val userId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
+                val userId = AuthManager.getUserId() ?: return@launch
                 val scheduledTime = java.util.Date(System.currentTimeMillis() + 3600000) // 1 hour from now
 
                 val reminder = Reminder(

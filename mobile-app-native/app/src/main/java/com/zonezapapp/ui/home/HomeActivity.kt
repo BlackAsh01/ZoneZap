@@ -17,7 +17,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.zonezapapp.R
-import com.zonezapapp.config.FirebaseConfig
+import com.zonezapapp.api.ApiClient
+import com.zonezapapp.api.AuthManager
 import com.zonezapapp.data.LocationData
 import com.zonezapapp.data.Reminder
 import com.zonezapapp.services.EmergencyService
@@ -26,10 +27,12 @@ import com.zonezapapp.services.ReminderService
 import com.zonezapapp.ui.login.LoginActivity
 import com.zonezapapp.ui.panic.PanicActivity
 import com.zonezapapp.ui.reminders.RemindersActivity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeActivity : AppCompatActivity() {
     private lateinit var locationText: TextView
@@ -50,7 +53,8 @@ class HomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_home)
 
         // Check authentication
-        if (FirebaseConfig.auth.currentUser == null) {
+        if (!AuthManager.isLoggedIn()) {
+            startActivity(Intent(this, com.zonezapapp.ui.login.LoginActivity::class.java))
             finish()
             return
         }
@@ -148,24 +152,24 @@ class HomeActivity : AppCompatActivity() {
     private fun logLocationToFirestore(location: LocationData) {
         lifecycleScope.launch {
             try {
-                FirebaseConfig.firestore.collection("movement_logs").add(
-                    hashMapOf(
-                        "userId" to (FirebaseConfig.auth.currentUser?.uid ?: ""),
+                val userId = AuthManager.getUserId() ?: return@launch
+                withContext(Dispatchers.IO) {
+                    ApiClient.api().createMovementLog(mapOf(
+                        "userId" to userId,
                         "latitude" to location.latitude,
                         "longitude" to location.longitude,
-                        "timestamp" to com.google.firebase.Timestamp.now(),
-                        "speed" to location.speed,
-                        "heading" to location.heading
-                    )
-                )
-            } catch (e: Exception) {
-                // Handle error silently
-            }
+                        "timestamp" to location.timestamp,
+                        "speed" to location.speed.toDouble(),
+                        "heading" to location.heading.toDouble(),
+                        "accuracy" to location.accuracy.toDouble()
+                    ))
+                }
+            } catch (_: Exception) { }
         }
     }
 
     private fun loadReminders() {
-        val userId = FirebaseConfig.auth.currentUser?.uid ?: return
+        val userId = AuthManager.getUserId() ?: return
         // Cancel any existing reminders job
         remindersJob?.cancel()
         remindersJob = lifecycleScope.launch {
@@ -199,7 +203,7 @@ class HomeActivity : AppCompatActivity() {
     private fun sendPanicAlert() {
         lifecycleScope.launch {
             try {
-                val userId = FirebaseConfig.auth.currentUser?.uid ?: return@launch
+                val userId = AuthManager.getUserId() ?: return@launch
                 val location = locationService.getCurrentLocation()
                 
                 emergencyService.sendEmergencyAlert(userId, "PANIC", location)
@@ -221,8 +225,8 @@ class HomeActivity : AppCompatActivity() {
                 locationTrackingJob?.cancel()
                 remindersJob?.cancel()
                 
-                // Sign out from Firebase
-                FirebaseConfig.auth.signOut()
+                // Sign out (clear API auth)
+                AuthManager.clear()
                 
                 // Wait a moment for signOut to complete, then navigate
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

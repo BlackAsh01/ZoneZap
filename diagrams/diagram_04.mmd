@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant App as Android App
+    participant Firestore
+    participant CF as Cloud Function<br/>analyzeLocationPatterns
+    participant FCM
+    participant Guardian
+
+    App->>Firestore: Write movement_logs (location, timestamp)
+    Firestore->>CF: onCreate trigger
+    CF->>Firestore: Query last 30 movement_logs for userId
+    alt Count >= 10
+        CF->>CF: detectAnomalies() (speed, variance)
+        alt Anomalies found
+            CF->>Firestore: Create alert (WANDERING)
+            CF->>Firestore: Read guardians for userId
+            loop For each guardian
+                CF->>FCM: Send notification
+                FCM->>Guardian: Push (Wandering Alert)
+            end
+        end
+    end

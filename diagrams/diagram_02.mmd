@@ -1,0 +1,23 @@
+flowchart LR
+    subgraph Mobile["Mobile"]
+        A[Android App]
+    end
+
+    subgraph Cloud["Firebase"]
+        B[Auth]
+        C[Firestore]
+        D[Cloud Functions]
+        E[FCM]
+    end
+
+    subgraph External["External"]
+        F[Guardian Devices]
+        G[User Devices]
+    end
+
+    A --> B
+    A --> C
+    C --> D
+    D --> E
+    E --> F
+    E --> G
