@@ -17,8 +17,8 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        // Replace with your Vercel URL after deploy. For emulator + local API use: "http://10.0.2.2:3000"
-        buildConfigField "String", "API_BASE_URL", "\"https://zonezap-api.vercel.app\""
+        // Vercel API. For emulator + local API use: "http://10.0.2.2:3000"
+        buildConfigField "String", "API_BASE_URL", "\"https://zone-2n9q749zm-shivani-udhays-projects.vercel.app\""
     }
 
     buildTypes {
@@ -91,7 +91,9 @@ dependencies {
     
     // Location Services
     implementation 'com.google.android.gms:play-services-location:21.0.1'
-    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+
+    // OpenStreetMap (free, no API key) for Guardian live map
+    implementation 'org.osmdroid:osmdroid-android:6.1.18'
 
     // Networking (Vercel API)
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'

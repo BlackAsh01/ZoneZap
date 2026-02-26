@@ -2,6 +2,20 @@ package com.zonezapapp.api
 
 import com.google.gson.annotations.SerializedName
 
+/** Request body for register; avoids Gson "parameter type must include a type var" with Map<String, Any>. */
+data class RegisterRequest(
+    val email: String,
+    val password: String,
+    val name: String,
+    val type: String
+)
+
+/** Request body for login. */
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
 data class LoginRegisterResponse(
     val token: String,
     val user: ApiUser

@@ -13,22 +13,12 @@ object FirebaseConfig {
     val messaging: FirebaseMessaging = FirebaseMessaging.getInstance()
     
     init {
-        // Log Firebase initialization
-        Log.d(TAG, "Firebase initialized")
+        Log.d(TAG, "Firebase initialized (FCM only; auth/data use Vercel API)")
         Log.d(TAG, "Auth instance: ${auth.app.name}")
         Log.d(TAG, "Firestore instance: ${firestore.app.name}")
-        
-        // Connect to Firebase emulators for local development
-        // Uncomment to use production Firebase instead
-        try {
-            // For Android Emulator: 10.0.2.2 maps to host machine's localhost
-            // For Physical Device: Replace with your computer's IP address
-            auth.useEmulator("10.0.2.2", 9099) // Auth emulator port
-            firestore.useEmulator("10.0.2.2", 8080) // Firestore emulator port
-            Log.d(TAG, "✅ Connected to Firebase emulators (10.0.2.2:9099, 10.0.2.2:8080)")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to connect to emulators: ${e.message}")
-            Log.w(TAG, "Will try to use production Firebase instead")
-        }
+        // Emulators disabled: app uses Vercel API for auth and data.
+        // To use Firebase emulators for local testing, set USE_FIREBASE_EMULATORS = true and run emulators.
+        // auth.useEmulator("10.0.2.2", 9099)
+        // firestore.useEmulator("10.0.2.2", 8080)
     }
 }

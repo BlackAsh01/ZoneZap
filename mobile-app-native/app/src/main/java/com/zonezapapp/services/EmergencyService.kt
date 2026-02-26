@@ -45,12 +45,12 @@ class EmergencyService {
             EmergencyAlert(
                 id = r.id,
                 userId = r.userId,
-                alertType = r.alertType,
+                alertType = r.alertType ?: "PANIC",
                 level = r.level ?: "CRITICAL",
                 location = if (r.latitude != null && r.longitude != null) LocationData(r.latitude, r.longitude, 0f, 0f, 0f) else null,
                 timestamp = null,
                 status = r.status ?: "ACTIVE",
-                message = null
+                message = ""
             )
         }
     }
@@ -62,3 +62,4 @@ class EmergencyService {
         }
         return all.sortedByDescending { it.id }
     }
+}

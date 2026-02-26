@@ -37,15 +37,12 @@ class UserService {
 
     suspend fun updateUserTimestamp(userId: String) {}
 
+    /** Links the given ward (userId) to the current guardian. Throws on API error so caller can show the server message. */
     suspend fun addGuardianToUser(userId: String, guardianId: String): Boolean {
-        return try {
-            withContext(Dispatchers.IO) {
-                api.linkWard(mapOf("ward_id" to userId))
-            }
-            true
-        } catch (_: Exception) {
-            false
+        withContext(Dispatchers.IO) {
+            api.linkWard(mapOf("ward_id" to userId))
         }
+        return true
     }
 
     suspend fun removeGuardianFromUser(userId: String, guardianId: String): Boolean {

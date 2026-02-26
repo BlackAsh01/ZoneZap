@@ -21,7 +21,9 @@ import com.zonezapapp.services.ReminderService
 import com.zonezapapp.services.UserService
 import com.zonezapapp.services.WardLocationService
 import com.zonezapapp.ui.login.LoginActivity
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 class GuardianActivity : AppCompatActivity() {
     private lateinit var alertsRecyclerView: RecyclerView
@@ -139,12 +141,14 @@ class GuardianActivity : AppCompatActivity() {
     private fun showAlertDetails(alert: EmergencyAlert) {
         val displayName = "Ward ${alert.userId.take(8)}"
         val locationString = if (alert.location != null) "${alert.location.latitude}, ${alert.location.longitude}" else "Not available"
-        android.app.AlertDialog.Builder(this@GuardianActivity)
+        val builder = android.app.AlertDialog.Builder(this@GuardianActivity)
             .setTitle("Emergency Alert: ${alert.alertType}")
             .setMessage("From: $displayName\nTime: ${alert.timestamp?.toDate()}\nStatus: ${alert.status}\nLocation: $locationString")
             .setPositiveButton("Mark as Resolved") { _, _ -> resolveAlert(alert.id) }
-            .setNegativeButton("Close", null)
-            .show()
+        if (alert.location != null) {
+            builder.setNeutralButton("Track on map") { _, _ -> openLiveMap(alert.userId, displayName) }
+        }
+        builder.setNegativeButton("Close", null).show()
     }
 
     private fun resolveAlert(alertId: String) {
@@ -160,8 +164,14 @@ class GuardianActivity : AppCompatActivity() {
     }
 
     private fun viewWardDetails(wardId: String) {
-        // Show ward details dialog with location and options
         showWardDetailsDialog(wardId)
+    }
+
+    private fun openLiveMap(wardId: String, wardName: String) {
+        startActivity(Intent(this, WardLiveMapActivity::class.java).apply {
+            putExtra(WardLiveMapActivity.EXTRA_WARD_ID, wardId)
+            putExtra(WardLiveMapActivity.EXTRA_WARD_NAME, wardName)
+        })
     }
     
     private fun showWardDetailsDialog(wardId: String) {
@@ -192,14 +202,17 @@ class GuardianActivity : AppCompatActivity() {
                     "Location not available"
                 }
                 
+                val options = arrayOf("Track on map", "Add Reminder", "View location history", "Close")
                 androidx.appcompat.app.AlertDialog.Builder(this@GuardianActivity)
                     .setTitle("Ward: ${ward.name}")
                     .setMessage("Email: ${ward.email}\n\nLocation:\n$locationText")
-                    .setPositiveButton("Add Reminder") { _, _ ->
-                        showAddReminderForWardDialog(wardId)
-                    }
-                    .setNeutralButton("View Location History") { _, _ ->
-                        showLocationHistory(wardId, ward.name)
+                    .setItems(options) { _, which ->
+                        when (which) {
+                            0 -> openLiveMap(wardId, ward.name)
+                            1 -> showAddReminderForWardDialog(wardId)
+                            2 -> showLocationHistory(wardId, ward.name)
+                            // 3 = Close (dismiss)
+                        }
                     }
                     .setNegativeButton("Close", null)
                     .show()
@@ -332,14 +345,30 @@ class GuardianActivity : AppCompatActivity() {
                 val success = userService.addWardToGuardian(guardianId, userId)
                 if (success) {
                     Toast.makeText(this@GuardianActivity, "Ward added successfully!", Toast.LENGTH_SHORT).show()
-                    loadWards() // Refresh the wards list
-                } else {
-                    Toast.makeText(this@GuardianActivity, "Failed to add ward. User may already be added.", Toast.LENGTH_SHORT).show()
+                    loadWards()
                 }
+            } catch (e: HttpException) {
+                val body = e.response()?.errorBody()?.string()
+                val msg = when (e.code()) {
+                    403 -> "Only guardian accounts can add wards."
+                    404 -> parseApiError(body) ?: "Ward not found. User must sign up as a ward (user) first."
+                    400 -> parseApiError(body) ?: "Invalid request."
+                    else -> parseApiError(body) ?: "Failed to add ward (${e.code()})."
+                }
+                Toast.makeText(this@GuardianActivity, msg, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error adding ward", e)
                 Toast.makeText(this@GuardianActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun parseApiError(body: String?): String? {
+        if (body.isNullOrBlank() || !body.trim().startsWith("{")) return null
+        return try {
+            org.json.JSONObject(body.trim()).optString("error").takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            null
         }
     }
 

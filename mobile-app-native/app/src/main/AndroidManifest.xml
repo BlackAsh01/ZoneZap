@@ -50,6 +50,11 @@
             android:name=".ui.guardian.GuardianActivity"
             android:exported="false"
             android:parentActivityName=".ui.login.LoginActivity" />
+
+        <activity
+            android:name=".ui.guardian.WardLiveMapActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.guardian.GuardianActivity" />
     </application>
 
 </manifest>

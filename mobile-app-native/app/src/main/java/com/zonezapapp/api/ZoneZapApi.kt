@@ -1,5 +1,6 @@
 package com.zonezapapp.api
 
+import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -10,10 +11,10 @@ import java.util.concurrent.TimeUnit
 
 interface ZoneZapApi {
     @POST("api/auth/register")
-    suspend fun register(@Body body: Map<String, Any>): LoginRegisterResponse
+    suspend fun register(@Body body: RegisterRequest): LoginRegisterResponse
 
     @POST("api/auth/login")
-    suspend fun login(@Body body: Map<String, Any>): LoginRegisterResponse
+    suspend fun login(@Body body: LoginRequest): LoginRegisterResponse
 
     @GET("api/users/me")
     suspend fun getMe(): ApiUser
@@ -57,7 +58,10 @@ interface ZoneZapApi {
             val authInterceptor = Interceptor { chain ->
                 val token = AuthManager.getToken()
                 val request = chain.request().newBuilder()
+                    .addHeader("Accept", "application/json")
                 if (!token.isNullOrBlank()) request.addHeader("Authorization", "Bearer $token")
+                val req = chain.request()
+                Log.d("ZoneZapApi", "Request: ${req.method} ${req.url}")
                 chain.proceed(request.build())
             }
             val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
