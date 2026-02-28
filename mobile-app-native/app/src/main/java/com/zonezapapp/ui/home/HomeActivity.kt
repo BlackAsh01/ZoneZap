@@ -19,6 +19,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.zonezapapp.R
 import com.zonezapapp.api.ApiClient
 import com.zonezapapp.api.AuthManager
+import com.zonezapapp.api.MovementLogRequest
 import com.zonezapapp.data.LocationData
 import com.zonezapapp.data.Reminder
 import com.zonezapapp.services.EmergencyService
@@ -162,15 +163,17 @@ class HomeActivity : AppCompatActivity() {
             try {
                 val userId = AuthManager.getUserId() ?: return@launch
                 withContext(Dispatchers.IO) {
-                    ApiClient.api().createMovementLog(mapOf(
-                        "userId" to userId,
-                        "latitude" to location.latitude,
-                        "longitude" to location.longitude,
-                        "timestamp" to location.timestamp,
-                        "speed" to location.speed.toDouble(),
-                        "heading" to location.heading.toDouble(),
-                        "accuracy" to location.accuracy.toDouble()
-                    ))
+                    ApiClient.api().createMovementLog(
+                        MovementLogRequest(
+                            userId = userId,
+                            latitude = location.latitude,
+                            longitude = location.longitude,
+                            timestamp = location.timestamp,
+                            speed = location.speed.toDouble(),
+                            heading = location.heading.toDouble(),
+                            accuracy = location.accuracy.toDouble()
+                        )
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e("HomeActivity", "Failed to send location", e)

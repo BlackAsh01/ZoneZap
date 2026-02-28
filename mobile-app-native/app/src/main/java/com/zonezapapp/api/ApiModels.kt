@@ -68,6 +68,17 @@ data class WardInfo(
     val email: String?
 )
 
+/** Request body for POST api/movement-logs */
+data class MovementLogRequest(
+    @SerializedName("userId") val userId: String,
+    val latitude: Double,
+    val longitude: Double,
+    val timestamp: Long,
+    val speed: Double,
+    val heading: Double,
+    val accuracy: Double
+)
+
 data class MovementLogResponse(
     val id: String,
     @SerializedName("user_id") val userId: String,

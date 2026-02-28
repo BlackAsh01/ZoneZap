@@ -12,7 +12,6 @@ import com.zonezapapp.R
 import com.zonezapapp.api.ApiClient
 import com.zonezapapp.api.AuthManager
 import com.zonezapapp.api.LoginRequest
-import com.zonezapapp.api.RegisterRequest
 import com.zonezapapp.ui.guardian.GuardianActivity
 import com.zonezapapp.ui.home.HomeActivity
 import kotlinx.coroutines.Dispatchers
@@ -25,15 +24,11 @@ class LoginActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "ZoneZapLogin"
     }
-    private lateinit var nameEditText: TextInputEditText
+
     private lateinit var emailEditText: TextInputEditText
     private lateinit var passwordEditText: TextInputEditText
     private lateinit var loginButton: MaterialButton
     private lateinit var signUpButton: MaterialButton
-    private lateinit var userModeButton: MaterialButton
-    private lateinit var guardianModeButton: MaterialButton
-
-    private var isGuardianMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,19 +47,15 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        nameEditText = findViewById(R.id.nameEditText)
         emailEditText = findViewById(R.id.emailEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
         loginButton = findViewById(R.id.loginButton)
         signUpButton = findViewById(R.id.signUpButton)
-        userModeButton = findViewById(R.id.userModeButton)
-        guardianModeButton = findViewById(R.id.guardianModeButton)
-        updateModeSelection(false)
 
-        userModeButton.setOnClickListener { isGuardianMode = false; updateModeSelection(false) }
-        guardianModeButton.setOnClickListener { isGuardianMode = true; updateModeSelection(true) }
         loginButton.setOnClickListener { handleLogin() }
-        signUpButton.setOnClickListener { handleSignUp() }
+        signUpButton.setOnClickListener {
+            startActivity(Intent(this, SignUpActivity::class.java))
+        }
     }
 
     private fun handleLogin() {
@@ -90,7 +81,6 @@ class LoginActivity : AppCompatActivity() {
                 }
                 finish()
             } catch (e: HttpException) {
-                logSignupLoginError("Login", e)
                 val body = e.response()?.errorBody()?.string()
                 val msg = when (e.code()) {
                     401 -> "Invalid email or password."
@@ -108,74 +98,6 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleSignUp() {
-        val name = nameEditText.text?.toString()?.trim() ?: ""
-        val email = emailEditText.text?.toString()?.trim() ?: ""
-        val password = passwordEditText.text?.toString() ?: ""
-        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please enter name, email and password", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (password.length < 6) {
-            Toast.makeText(this, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
-            return
-        }
-        loginButton.isEnabled = false
-        signUpButton.isEnabled = false
-        lifecycleScope.launch {
-            try {
-                val type = if (isGuardianMode) "guardian" else "user"
-                val res = withContext(Dispatchers.IO) {
-                    ApiClient.api().register(RegisterRequest(
-                        email = email,
-                        password = password,
-                        name = name,
-                        type = type
-                    ))
-                }
-                AuthManager.setAuth(res.token, res.user)
-                Toast.makeText(this@LoginActivity, "Account created successfully!", Toast.LENGTH_SHORT).show()
-                if (res.user.type == "guardian") {
-                    startActivity(Intent(this@LoginActivity, GuardianActivity::class.java))
-                } else {
-                    startActivity(Intent(this@LoginActivity, HomeActivity::class.java))
-                }
-                finish()
-            } catch (e: HttpException) {
-                logSignupLoginError("Signup", e)
-                val body = e.response()?.errorBody()?.string()
-                val msg = when (e.code()) {
-                    401 -> "Vercel is blocking the request. In Vercel: Project → Settings → Deployment Protection → turn OFF for Production (or use 'Only Preview' so production is open)."
-                    409 -> "An account with this email already exists."
-                    404 -> "API URL not found. In app build.gradle set API_BASE_URL to your exact Vercel URL and rebuild."
-                    405 -> "Server received GET instead of POST. Use exact Vercel URL in build.gradle (no trailing slash), then rebuild."
-                    400 -> parseServerError(body) ?: "Invalid request. Check email, password (min 6 chars), and type."
-                    500 -> parseServerError(body) ?: "Server error. Try again later."
-                    else -> parseServerError(body) ?: "Sign up failed (${e.code()})."
-                }
-                Toast.makeText(this@LoginActivity, msg, Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Log.e(TAG, "Signup error", e)
-                val detail = when {
-                    e.message.isNullOrBlank() -> "Check your connection and API URL."
-                    else -> sanitizeErrorMessage(e.message, "Check your connection.")
-                }
-                Toast.makeText(this@LoginActivity, "Sign up failed: $detail", Toast.LENGTH_LONG).show()
-            } finally {
-                loginButton.isEnabled = true
-                signUpButton.isEnabled = true
-            }
-        }
-    }
-
-    private fun logSignupLoginError(operation: String, e: retrofit2.HttpException) {
-        val url = e.response()?.raw()?.request?.url?.toString() ?: "unknown"
-        val code = e.code()
-        val body = e.response()?.errorBody()?.string()?.take(150) ?: ""
-        Log.e(TAG, "$operation failed: code=$code url=$url body=${body.take(80)}...")
-    }
-
-    /** Parse API JSON error body: { "error": "msg" } or { "message": "msg" }. */
     private fun parseServerError(body: String?): String? {
         if (body.isNullOrBlank()) return null
         val trimmed = body.trim()
@@ -184,12 +106,9 @@ class LoginActivity : AppCompatActivity() {
             val json = org.json.JSONObject(trimmed)
             json.optString("error").takeIf { it.isNotEmpty() }
                 ?: json.optString("message").takeIf { it.isNotEmpty() }
-        } catch (_: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 
-    /** Never show raw HTML (e.g. 404/500 page) to the user. */
     private fun sanitizeErrorMessage(raw: String?, fallback: String): String {
         if (raw.isNullOrBlank()) return fallback
         val trimmed = raw.trim()
@@ -200,23 +119,5 @@ class LoginActivity : AppCompatActivity() {
         }
         if (trimmed.startsWith("{")) return parseServerError(trimmed) ?: fallback
         return trimmed.take(200)
-    }
-
-    private fun updateModeSelection(isGuardian: Boolean) {
-        if (isGuardian) {
-            userModeButton.alpha = 0.5f
-            guardianModeButton.alpha = 1.0f
-            userModeButton.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            guardianModeButton.setBackgroundColor(getColor(R.color.primary_blue))
-            guardianModeButton.setTextColor(getColor(R.color.white))
-            userModeButton.setTextColor(getColor(R.color.primary_blue))
-        } else {
-            userModeButton.alpha = 1.0f
-            guardianModeButton.alpha = 0.5f
-            userModeButton.setBackgroundColor(getColor(R.color.primary_blue))
-            guardianModeButton.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            userModeButton.setTextColor(getColor(R.color.white))
-            guardianModeButton.setTextColor(getColor(R.color.primary_blue))
-        }
     }
 }

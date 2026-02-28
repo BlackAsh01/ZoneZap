@@ -44,7 +44,7 @@ interface ZoneZapApi {
     suspend fun getMovementLogs(@Query("user_id") userId: String?, @Query("limit") limit: Int? = null): List<MovementLogResponse>
 
     @POST("api/movement-logs")
-    suspend fun createMovementLog(@Body body: Map<String, Any>): MovementLogResponse
+    suspend fun createMovementLog(@Body body: MovementLogRequest): MovementLogResponse
 
     @GET("api/reminders")
     suspend fun getReminders(@Query("user_id") userId: String? = null): List<ReminderResponse>
