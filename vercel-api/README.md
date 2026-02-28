@@ -26,7 +26,12 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 4. Deploy. Your API URL will be `https://your-project.vercel.app`.
 5. In the Android app set the API base URL to this URL (e.g. in BuildConfig or `ApiConfig.BASE_URL`).
 
-**If the Guardian app shows only one ward or "Ward &lt;id&gt;" placeholders:** Redeploy the Vercel project so `GET /api/guardians/wards` is live (the route is in `pages/api/guardians/wards.js`). Until then, the app falls back to ward IDs from `/api/users/me` and shows all linked wards with placeholder names.
+**If the Guardian app shows "Ward a8171fbb" (ID) instead of names:**  
+1. **Names are stored:** Signup sends `name` to `POST /api/auth/register`, and the backend saves it in Supabase `users.name`. You can confirm in Supabase → Table Editor → `users` → check the `name` column for your ward rows.  
+2. **App needs the API:** The app shows names only when it gets them from the API. Redeploy the Vercel project with **Root Directory = `vercel-api`** so these routes are live:  
+   - `GET /api/guardians/wards` – returns all wards with id, name, email (preferred).  
+   - `GET /api/users/[id]` – fallback: returns one ward’s id, name, email when the first route returns 404.  
+   After redeploy, open the Guardian dashboard again; ward names should load. If they still don’t, check Logcat for `GuardianActivity` logs: "getGuardianWards 404" and "getWardUser(...) failed" to see which endpoint is missing.
 
 ## Cron (overdue reminders)
 
@@ -42,6 +47,7 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 | GET  | /api/users/me | Bearer | Current user |
 | PATCH | /api/users/me | Bearer | Update name, fcm_token |
 | GET  | /api/users/by-email?email= | Bearer | Find user by email (type=user) |
+| GET  | /api/users/[id] | Bearer | Ward/user id, name, email (guardian: only if id in wards) |
 | POST | /api/guardians/link | Bearer (guardian) | body: ward_email or ward_id |
 | GET | /api/guardians/wards | Bearer (guardian) | List wards with id, name, email (required for Guardian dashboard ward names and multiple wards) |
 | GET/POST | /api/alerts | Bearer | List / create alert (FCM to guardians) |

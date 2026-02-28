@@ -157,10 +157,14 @@ class GuardianActivity : AppCompatActivity() {
                 } catch (e: HttpException) {
                     if (e.code() == 404) {
                         // Fallback: fetch each ward's name/email from GET /api/users/{id}
+                        android.util.Log.w("GuardianActivity", "getGuardianWards 404, using getWardUser fallback for ${wardIds.size} wards")
                         wardIds.map { id ->
                             try {
                                 withContext(Dispatchers.IO) { ApiClient.api().getWardUser(id) }
-                            } catch (_: Exception) { WardInfo(id = id, name = null, email = null) }
+                            } catch (e2: Exception) {
+                                android.util.Log.w("GuardianActivity", "getWardUser(${id.take(8)}...) failed: ${e2.message}")
+                                WardInfo(id = id, name = null, email = null)
+                            }
                         }
                     } else throw e
                 }
