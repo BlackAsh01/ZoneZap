@@ -331,28 +331,22 @@ class GuardianActivity : AppCompatActivity() {
     }
 
     private fun addWardByEmail(email: String) {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isEmpty()) {
+            Toast.makeText(this, "Please enter an email", Toast.LENGTH_SHORT).show()
+            return
+        }
         lifecycleScope.launch {
             try {
-                val user = userService.findUserByEmail(email)
-                if (user == null) {
-                    Toast.makeText(this@GuardianActivity, "User not found with email: $email", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-
-                val guardianId = AuthManager.getUserId() ?: return@launch
-                val userId = user["userId"] as? String ?: return@launch
-
-                val success = userService.addWardToGuardian(guardianId, userId)
-                if (success) {
-                    Toast.makeText(this@GuardianActivity, "Ward added successfully!", Toast.LENGTH_SHORT).show()
-                    loadWards()
-                }
+                userService.addWardByEmail(trimmedEmail)
+                Toast.makeText(this@GuardianActivity, "Ward added successfully!", Toast.LENGTH_SHORT).show()
+                loadWards()
             } catch (e: HttpException) {
                 val body = e.response()?.errorBody()?.string()
                 val msg = when (e.code()) {
                     403 -> "Only guardian accounts can add wards."
                     404 -> parseApiError(body) ?: "Ward not found. User must sign up as a ward (user) first."
-                    400 -> parseApiError(body) ?: "Invalid request."
+                    400 -> parseApiError(body) ?: "Invalid request. Check that the email is correct and the account is a ward (user)."
                     else -> parseApiError(body) ?: "Failed to add ward (${e.code()})."
                 }
                 Toast.makeText(this@GuardianActivity, msg, Toast.LENGTH_LONG).show()

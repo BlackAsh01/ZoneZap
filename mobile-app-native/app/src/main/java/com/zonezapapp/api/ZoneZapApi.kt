@@ -52,6 +52,9 @@ interface ZoneZapApi {
     @PATCH("api/reminders/{id}")
     suspend fun updateReminder(@Path("id") id: String, @Body body: Map<String, Any>): ReminderResponse
 
+    @DELETE("api/reminders/{id}")
+    suspend fun deleteReminder(@Path("id") id: String): Map<String, Any>
+
     companion object {
         fun create(context: android.content.Context, baseUrl: String): ZoneZapApi {
             AuthManager.init(context)

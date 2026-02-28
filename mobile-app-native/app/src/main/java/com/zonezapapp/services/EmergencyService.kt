@@ -1,12 +1,26 @@
 package com.zonezapapp.services
 
+import com.google.firebase.Timestamp
 import com.zonezapapp.api.ApiClient
 import com.zonezapapp.data.EmergencyAlert
 import com.zonezapapp.data.LocationData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class EmergencyService {
+    private fun parseCreatedAt(iso: String?): Timestamp? {
+        if (iso.isNullOrBlank()) return null
+        return try {
+            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            format.parse(iso)?.let { Timestamp(it) }
+        } catch (_: Exception) {
+            try {
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).parse(iso)?.let { Timestamp(it) }
+            } catch (_: Exception) { null }
+        }
+    }
     private val api get() = ApiClient.api()
 
     suspend fun sendEmergencyAlert(
@@ -48,7 +62,7 @@ class EmergencyService {
                 alertType = r.alertType ?: "PANIC",
                 level = r.level ?: "CRITICAL",
                 location = if (r.latitude != null && r.longitude != null) LocationData(r.latitude, r.longitude, 0f, 0f, 0f) else null,
-                timestamp = null,
+                timestamp = parseCreatedAt(r.createdAt),
                 status = r.status ?: "ACTIVE",
                 message = ""
             )

@@ -1,15 +1,15 @@
 export default function Home() {
   const endpoints = [
-    '/api/auth/login',
-    '/api/auth/register',
-    '/api/users/me',
-    '/api/users/by-email',
-    '/api/guardians/link',
-    '/api/alerts',
-    '/api/alerts/[id]',
-    '/api/movement-logs',
-    '/api/reminders',
-    '/api/reminders/[id]',
+    '/api/auth/login (POST)',
+    '/api/auth/register (POST)',
+    '/api/users/me (GET, PATCH)',
+    '/api/users/by-email (GET)',
+    '/api/guardians/link (POST)',
+    '/api/alerts (GET, POST)',
+    '/api/alerts/[id] (PATCH)',
+    '/api/movement-logs (GET, POST)',
+    '/api/reminders (GET, POST)',
+    '/api/reminders/[id] (PATCH, DELETE)',
     '/api/cron/overdue-reminders',
   ];
   return (

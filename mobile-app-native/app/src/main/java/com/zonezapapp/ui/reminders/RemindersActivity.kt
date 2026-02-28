@@ -99,7 +99,7 @@ class RemindersActivity : AppCompatActivity() {
 
                 reminderService.createReminder(userId, reminder)
                 Toast.makeText(this@RemindersActivity, "Reminder added", Toast.LENGTH_SHORT).show()
-                // Note: loadReminders() not needed - Flow will automatically update
+                loadReminders()
             } catch (e: Exception) {
                 Toast.makeText(this@RemindersActivity, "Failed to create reminder", Toast.LENGTH_SHORT).show()
             }
@@ -122,7 +122,7 @@ class RemindersActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 reminderService.completeReminder(reminderId)
-                // Note: loadReminders() not needed - Flow will automatically update
+                loadReminders()
             } catch (e: Exception) {
                 Toast.makeText(this@RemindersActivity, "Failed to complete reminder", Toast.LENGTH_SHORT).show()
             }
@@ -137,7 +137,8 @@ class RemindersActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     try {
                         reminderService.deleteReminder(reminderId)
-                        // Note: loadReminders() not needed - Flow will automatically update
+                        Toast.makeText(this@RemindersActivity, "Reminder deleted", Toast.LENGTH_SHORT).show()
+                        loadReminders()
                     } catch (e: Exception) {
                         Toast.makeText(this@RemindersActivity, "Failed to delete reminder", Toast.LENGTH_SHORT).show()
                     }

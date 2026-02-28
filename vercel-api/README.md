@@ -45,5 +45,12 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 | PATCH | /api/alerts/[id] | Bearer | Update status |
 | GET/POST | /api/movement-logs | Bearer | List / log (POST runs anomaly → WANDERING + FCM) |
 | GET/POST | /api/reminders | Bearer | List / create |
-| PATCH | /api/reminders/[id] | Bearer | Update / complete |
+| PATCH / DELETE | /api/reminders/[id] | Bearer | Update / complete / delete |
 | GET/POST | /api/cron/overdue-reminders | Cron secret | Send FCM for overdue reminders |
+
+## Export movement data for AI training
+
+To train the ZoneZap AI model on the same location data the app sends:
+
+1. From the `vercel-api` directory (with `.env` or env vars set): `npm run export-movement-logs`
+2. This writes `scripts/movement_export.csv`. Then in `ai-engine`: `python train.py --csv ../vercel-api/scripts/movement_export.csv`

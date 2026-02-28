@@ -81,6 +81,6 @@ class ReminderService {
     }
 
     suspend fun deleteReminder(reminderId: String) {
-        withContext(Dispatchers.IO) { api.updateReminder(reminderId, mapOf("is_completed" to true)) }
+        withContext(Dispatchers.IO) { api.deleteReminder(reminderId) }
     }
 }

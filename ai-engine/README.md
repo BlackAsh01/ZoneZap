@@ -7,7 +7,12 @@ Machine Learning pipeline for anomaly detection and wandering behavior predictio
 - **Isolation Forest** algorithm for anomaly detection
 - Real-time location pattern analysis
 - Wandering behavior detection
-- Integration with Firebase for real-time predictions
+- Train on **Firebase Firestore** or **Supabase** (app) location data
+
+## How the model fits the app
+
+- **Live app (Vercel + Supabase):** When the mobile app sends location via `POST /api/movement-logs`, the API uses **rule-based** anomaly detection in `vercel-api/lib/anomaly.js` (speed and movement variance on the last 30 points). No Python model is used in production.
+- **This AI engine:** Trains an Isolation Forest on location data. You can train on the **same data** the app sends by exporting from Supabase (see below) or from Firebase. The trained `model.pkl` can be used for offline analysis or future server-side integration.
 
 ## Setup
 
@@ -17,47 +22,38 @@ pip install -r requirements.txt
 ```
 
 2. Prepare training data:
-   - Create a CSV file `movement.csv` with columns: `latitude`, `longitude`, `timestamp`, `speed`, `heading`
-   - Or use the sample data generator in `train.py`
+   - Create a CSV with columns: `latitude`, `longitude`, `timestamp`, `speed`, `heading`
+   - Or export from Supabase (recommended if you use the Vercel backend), or use Firebase/sample data
 
 ## Training
 
-### Option 1: Train on REAL Firebase Data (Recommended) 🎯
+### Option 1: Train on app location data (Supabase / Vercel backend) 🎯
 
-Train the model using actual location data from your Firebase Firestore:
+If your app uses the **Vercel + Supabase** backend, export movement logs from Supabase then train:
 
 ```bash
-# Method 1: Using helper script (auto-detects credentials)
-python train_with_firebase.py
+# 1. Export from Supabase (from project root; set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+node vercel-api/scripts/export-movement-logs-to-csv.js
 
-# Method 2: Direct with Firebase credentials
-python train.py --firebase-cred path/to/serviceAccountKey.json
-
-# Method 3: Train on specific user's data
-python train.py --firebase-cred serviceAccountKey.json --user-id USER_ID
-
-# Method 4: Use Firebase emulator (for local testing)
-export FIRESTORE_EMULATOR_HOST=localhost:8080
-python train.py
+# 2. Train on the exported CSV
+cd ai-engine
+python train.py --csv ../vercel-api/scripts/movement_export.csv
 ```
 
-**Getting Firebase Service Account Key:**
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project (zonezap-a6953)
-3. Go to **Project Settings** → **Service Accounts**
-4. Click **Generate New Private Key**
-5. Save as `firebase-service-account.json` in `ai-engine/` directory
+This uses the **same location data** the app sends to the API. Collect some movement data with the app first, then run the export and train.
 
-**What it does:**
-- ✅ Fetches real movement data from Firestore `movement_logs` collection
-- ✅ Uses actual location patterns from your mobile app users
-- ✅ Trains on real-world wandering behavior patterns
-- ✅ Saves backup CSV for future reference
-- ✅ Generates comprehensive training report
+### Option 2: Train on Firebase Firestore data
 
-### Option 2: Train on CSV File
+Train the model using location data from Firebase Firestore:
 
-If you have location data in CSV format:
+```bash
+python train.py --firebase-cred path/to/serviceAccountKey.json
+python train.py --firebase-cred serviceAccountKey.json --user-id USER_ID
+```
+
+**Getting Firebase Service Account Key:** Firebase Console → Project Settings → Service Accounts → Generate New Private Key.
+
+### Option 3: Train on any CSV file
 
 ```bash
 python train.py --csv movement.csv
@@ -65,7 +61,7 @@ python train.py --csv movement.csv
 
 CSV format: `latitude,longitude,timestamp,speed,heading`
 
-### Option 3: Use Sample Data (For Testing)
+### Option 4: Use sample data (for testing)
 
 ```bash
 python train.py --no-firestore
@@ -108,10 +104,8 @@ For Firebase integration:
 
 ## Integration
 
-The AI engine can be integrated with:
-- Firebase Cloud Functions (for real-time processing)
-- Standalone Python service
-- Batch processing scripts
+- **Production (Vercel):** Anomaly detection is done in `vercel-api/lib/anomaly.js` using the last 30 movement logs (speed and variance). No Python model is called there.
+- **Optional:** The AI engine can be used for batch analysis, or the trained `model.pkl` can be integrated later (e.g. reimplement scoring in Node or call a Python service).
 
 ## Files
 

@@ -45,6 +45,14 @@ class UserService {
         return true
     }
 
+    /** Links a ward by email (single API call; server looks up user). Use this when adding ward from email. */
+    suspend fun addWardByEmail(wardEmail: String): Boolean {
+        withContext(Dispatchers.IO) {
+            api.linkWard(mapOf("ward_email" to wardEmail.trim().lowercase()))
+        }
+        return true
+    }
+
     suspend fun removeGuardianFromUser(userId: String, guardianId: String): Boolean {
         return false
     }

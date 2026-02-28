@@ -128,9 +128,11 @@ def load_movement_data(csv_path='movement.csv', db=None, user_id=None, use_fires
             print(f"✓ Backup saved to movement_firestore_backup.csv")
             return df
     
-    # Fallback to CSV file
+    # Fallback to CSV file (e.g. from Supabase export)
     try:
         df = pd.read_csv(csv_path)
+        df['speed'] = pd.to_numeric(df['speed'], errors='coerce').fillna(0)
+        df['heading'] = pd.to_numeric(df['heading'], errors='coerce').fillna(0)
         print(f"[OK] Loaded {len(df)} movement records from CSV: {csv_path}")
         return df
     except FileNotFoundError:
