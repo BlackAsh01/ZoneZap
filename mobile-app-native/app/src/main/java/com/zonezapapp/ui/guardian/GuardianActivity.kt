@@ -14,6 +14,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.zonezapapp.R
 import com.zonezapapp.api.ApiClient
 import com.zonezapapp.api.AuthManager
+import com.zonezapapp.api.WardInfo
 import com.zonezapapp.data.EmergencyAlert
 import com.zonezapapp.data.LocationData
 import com.zonezapapp.data.Reminder
@@ -95,8 +96,12 @@ class GuardianActivity : AppCompatActivity() {
                     return@launch
                 }
                 val alerts = emergencyService.getAlertsForWards(wardIds)
-                val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
-                val userIdToNameMap = wardInfos.associate { it.id to (it.name?.takeIf { n -> n.isNotBlank() } ?: it.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${it.id.take(8)}") }
+                val userIdToNameMap = try {
+                    val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                    wardInfos.associate { it.id to (it.name?.takeIf { n -> n.isNotBlank() } ?: it.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${it.id.take(8)}") }
+                } catch (e: HttpException) {
+                    if (e.code() == 404) wardIds.associateWith { "Ward ${it.take(8)}" } else throw e
+                }
                 if (alerts.isEmpty()) {
                     noAlertsText.text = "No active alerts"
                     noAlertsText.visibility = android.view.View.VISIBLE
@@ -123,14 +128,22 @@ class GuardianActivity : AppCompatActivity() {
                     val me = withContext(Dispatchers.IO) { ApiClient.api().getMe() }
                     AuthManager.setAuth(token, me)
                 }
-                val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
-                if (wardInfos.isEmpty()) {
+                val wardIds = AuthManager.getUser()?.wards ?: emptyList()
+                if (wardIds.isEmpty()) {
                     noWardsText.text = "No wards assigned to you"
                     noWardsText.visibility = android.view.View.VISIBLE
                     wardsRecyclerView.visibility = android.view.View.GONE
                     return@launch
                 }
-                val wards = wardInfos.map { info ->
+                val wardInfos = try {
+                    withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                } catch (e: HttpException) {
+                    if (e.code() == 404) {
+                        // Endpoint not deployed yet; use ids only with placeholder names
+                        wardIds.map { id -> WardInfo(id = id, name = null, email = null) }
+                    } else throw e
+                }
+                val wards = (if (wardInfos.isEmpty()) wardIds.map { id -> WardInfo(id = id, name = null, email = null) } else wardInfos).map { info ->
                     val location = wardLocationService.getLatestWardLocation(info.id)
                     Ward(
                         id = info.id,
