@@ -134,9 +134,9 @@ class GuardianActivity : AppCompatActivity() {
     private suspend fun fetchWardInfosById(wardIds: List<String>): List<WardInfo> = withContext(Dispatchers.IO) {
         wardIds.map { id ->
             try {
-                ApiClient.api().getWardUser(id)
+                ApiClient.api().getWardUserById(id)
             } catch (e: Exception) {
-                android.util.Log.w("GuardianActivity", "getWardUser(${id.take(8)}...) failed: ${e.message}")
+                android.util.Log.w("GuardianActivity", "getWardUserById(${id.take(8)}...) failed: ${e.message}")
                 WardInfo(id = id, name = null, email = null)
             }
         }

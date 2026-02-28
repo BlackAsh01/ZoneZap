@@ -31,9 +31,9 @@ interface ZoneZapApi {
     @GET("api/guardians/wards")
     suspend fun getGuardianWards(): List<WardInfo>
 
-    /** Fallback when /api/guardians/wards is not available: get one ward's name/email by id (guardian auth). */
-    @GET("api/users/{id}")
-    suspend fun getWardUser(@Path("id") wardId: String): WardInfo
+    /** Fallback when /api/guardians/wards is not available: get one ward's name/email (guardian auth). Uses static path for reliable Vercel deploy. */
+    @GET("api/users/by-id")
+    suspend fun getWardUserById(@Query("userId") wardId: String): WardInfo
 
     @GET("api/alerts")
     suspend fun getAlerts(@Query("user_id") userId: String? = null, @Query("status") status: String? = null): List<AlertResponse>

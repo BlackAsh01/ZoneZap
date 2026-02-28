@@ -48,6 +48,7 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 | PATCH | /api/users/me | Bearer | Update name, fcm_token |
 | GET  | /api/users/by-email?email= | Bearer | Find user by email (type=user) |
 | GET  | /api/users/[id] | Bearer | Ward/user id, name, email (guardian: only if id in wards) |
+| GET  | /api/users/by-id?userId= | Bearer | Same as [id]; static path for reliable deploy |
 | POST | /api/guardians/link | Bearer (guardian) | body: ward_email or ward_id |
 | GET | /api/guardians/wards | Bearer (guardian) | List wards with id, name, email (required for Guardian dashboard ward names and multiple wards) |
 | GET/POST | /api/alerts | Bearer | List / create alert (FCM to guardians) |
