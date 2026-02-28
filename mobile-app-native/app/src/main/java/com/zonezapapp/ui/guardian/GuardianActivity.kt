@@ -365,8 +365,13 @@ class GuardianActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 userService.addWardByEmail(trimmedEmail)
+                // Refresh guardian user from server so wards list includes the new ward, then reload UI
+                val token = AuthManager.getToken()
+                if (!token.isNullOrBlank()) {
+                    val me = withContext(Dispatchers.IO) { ApiClient.api().getMe() }
+                    AuthManager.setAuth(token, me)
+                }
                 Toast.makeText(this@GuardianActivity, "Ward added successfully!", Toast.LENGTH_SHORT).show()
-                // Refresh guardian user (getMe) so wards list is up to date, then reload wards and their locations
                 loadWards()
             } catch (e: HttpException) {
                 val code = e.code()

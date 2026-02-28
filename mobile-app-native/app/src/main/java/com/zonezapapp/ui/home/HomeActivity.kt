@@ -132,6 +132,14 @@ class HomeActivity : AppCompatActivity() {
     private fun startLocationTracking() {
         // Cancel any existing tracking job
         locationTrackingJob?.cancel()
+        // Send last known location immediately so guardian sees at least one point (e.g. if ward leaves app quickly)
+        lifecycleScope.launch {
+            val immediate = withContext(Dispatchers.IO) { locationService.getCurrentLocation() }
+            if (immediate != null && !isFinishing && !isDestroyed) {
+                updateLocationUI(immediate)
+                logLocationToFirestore(immediate)
+            }
+        }
         locationTrackingJob = lifecycleScope.launch {
             locationService.trackLocation().onEach { location ->
                 // Check if activity is still valid before updating UI
@@ -164,7 +172,9 @@ class HomeActivity : AppCompatActivity() {
                         "accuracy" to location.accuracy.toDouble()
                     ))
                 }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeActivity", "Failed to send location", e)
+            }
         }
     }
 

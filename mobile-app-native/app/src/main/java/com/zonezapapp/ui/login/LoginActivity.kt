@@ -25,6 +25,7 @@ class LoginActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "ZoneZapLogin"
     }
+    private lateinit var nameEditText: TextInputEditText
     private lateinit var emailEditText: TextInputEditText
     private lateinit var passwordEditText: TextInputEditText
     private lateinit var loginButton: MaterialButton
@@ -51,6 +52,7 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
+        nameEditText = findViewById(R.id.nameEditText)
         emailEditText = findViewById(R.id.emailEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
         loginButton = findViewById(R.id.loginButton)
@@ -107,10 +109,11 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun handleSignUp() {
+        val name = nameEditText.text?.toString()?.trim() ?: ""
         val email = emailEditText.text?.toString()?.trim() ?: ""
         val password = passwordEditText.text?.toString() ?: ""
-        if (email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please enter both email and password", Toast.LENGTH_SHORT).show()
+        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "Please enter name, email and password", Toast.LENGTH_SHORT).show()
             return
         }
         if (password.length < 6) {
@@ -126,7 +129,7 @@ class LoginActivity : AppCompatActivity() {
                     ApiClient.api().register(RegisterRequest(
                         email = email,
                         password = password,
-                        name = email.substringBefore("@"),
+                        name = name,
                         type = type
                     ))
                 }
