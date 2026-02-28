@@ -20,10 +20,10 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 
 ## Deploy on Vercel
 
-1. Push this folder to GitHub (or connect Vercel to your repo).
-2. In Vercel: New Project → Import → set Root Directory to `vercel-api`.
+1. Push the repo to GitHub and connect it to Vercel (or use Vercel CLI from inside `vercel-api`).
+2. **Critical:** In Vercel → your project → **Settings** → **General** → **Root Directory**: set to **`vercel-api`** and Save. If you leave this blank when the repo root is the project root, routes like `/api/guardians/wards` and `/api/users/[id]` will 404 (Vercel won’t see `pages/api/`).
 3. Add the same environment variables in Vercel (Project Settings → Environment Variables).
-4. Deploy. Your API URL will be `https://your-project.vercel.app`.
+4. Deploy (or redeploy). Your API URL will be `https://your-project.vercel.app`.
 5. In the Android app set the API base URL to this URL (e.g. in BuildConfig or `ApiConfig.BASE_URL`).
 
 **If the Guardian app shows "Ward a8171fbb" (ID) instead of names:**  

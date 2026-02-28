@@ -2,6 +2,8 @@
 
 Follow these steps in order.
 
+**If you deploy by pushing to GitHub (auto-deploy):** In Vercel, set **Root Directory** to **`vercel-api`** (Settings → General → Root Directory). Otherwise `/api/guardians/wards`, `/api/users/[id]`, and other routes under `vercel-api/pages/api/` will return 404.
+
 ---
 
 ## Prerequisites
@@ -152,7 +154,8 @@ Or push to GitHub if the project is connected — Vercel will auto-deploy.
 
 | Issue | What to do |
 |-------|------------|
+| **404 on /api/guardians/wards, /api/users/xxx, or “Ward &lt;id&gt;” in app** | You use **Git auto-deploy** (push → Vercel builds). Vercel is building from the **repo root**, so it never sees `vercel-api/pages/api/`. **Fix:** In Vercel → Project → **Settings** → **General** → **Root Directory**: set to **`vercel-api`** (type it, then Save). Then **Redeploy** (Deployments → ⋯ → Redeploy). After that, `/api/guardians/wards` and `/api/users/[id]` will work and the Guardian dashboard will show ward names. |
 | **404 / DEPLOYMENT_NOT_FOUND** | Use the exact URL from the Vercel dashboard (Deployments → your deployment). Update `API_BASE_URL` in `build.gradle` to that URL. |
 | **401 / 500 on login or register** | Add or fix `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `JWT_SECRET` in Vercel → Settings → Environment Variables, then redeploy. |
 | **`vercel` not found** | Use `npx vercel` instead of `vercel`, or run `npm install -g vercel` again. |
-| **Build fails on Vercel** | Check the build log in Deployments. Ensure Root Directory is not set (you deploy from inside `vercel-api`). |
+| **Build fails on Vercel** | Check the build log in Deployments. If you use Git: set Root Directory to `vercel-api`. If you deploy with `vercel` from inside `vercel-api`, leave Root Directory empty. |
