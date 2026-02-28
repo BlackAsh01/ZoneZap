@@ -39,7 +39,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:layout_marginBottom="8dp">
-                
+
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -48,7 +48,7 @@
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="@color/primary_blue" />
-                
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/addWardButton"
                     android:layout_width="wrap_content"
@@ -58,10 +58,39 @@
                     app:icon="@android:drawable/ic_input_add" />
             </LinearLayout>
 
+            <!-- Map showing ward locations -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="4dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="220dp">
+
+                    <org.osmdroid.views.MapView
+                        android:id="@+id/wardsMapView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                    <TextView
+                        android:id="@+id/wardsMapPlaceholder"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="Tap a ward below to track on map"
+                        android:textColor="#666666"
+                        android:visibility="gone" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/wardsRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="80dp"
                 android:layout_marginBottom="24dp"
                 tools:listitem="@android:layout/simple_list_item_1" />
 

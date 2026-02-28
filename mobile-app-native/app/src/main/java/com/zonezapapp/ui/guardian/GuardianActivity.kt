@@ -21,10 +21,16 @@ import com.zonezapapp.data.Reminder
 import com.zonezapapp.services.EmergencyService
 import com.zonezapapp.services.ReminderService
 import com.zonezapapp.services.UserService
+import com.zonezapapp.services.GeocodingHelper
 import com.zonezapapp.services.WardLocationService
 import com.zonezapapp.ui.login.LoginActivity
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -34,6 +40,8 @@ class GuardianActivity : AppCompatActivity() {
     private lateinit var wardsRecyclerView: RecyclerView
     private lateinit var noAlertsText: TextView
     private lateinit var noWardsText: TextView
+    private var wardsMapView: MapView? = null
+    private var wardsMapPlaceholder: TextView? = null
     
     private val alertsAdapter = AlertsAdapter { alert ->
         showAlertDetails(alert)
@@ -47,6 +55,8 @@ class GuardianActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Configuration.getInstance().load(this, getPreferences(MODE_PRIVATE))
+        Configuration.getInstance().userAgentValue = packageName
         setContentView(R.layout.activity_guardian)
 
         // Check authentication
@@ -76,6 +86,17 @@ class GuardianActivity : AppCompatActivity() {
 
         wardsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         wardsRecyclerView.adapter = wardsAdapter
+
+        wardsMapView = findViewById(R.id.wardsMapView)
+        wardsMapPlaceholder = findViewById(R.id.wardsMapPlaceholder)
+        wardsMapView?.apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller?.setZoom(4.0)
+            controller?.setCenter(GeoPoint(20.0, 77.0))
+            setClickable(true)
+            setFocusable(true)
+        }
 
         findViewById<MaterialButton>(R.id.logoutButton).setOnClickListener {
             logout()
@@ -133,6 +154,7 @@ class GuardianActivity : AppCompatActivity() {
                     noWardsText.text = "No wards assigned to you"
                     noWardsText.visibility = android.view.View.VISIBLE
                     wardsRecyclerView.visibility = android.view.View.GONE
+                    updateWardsMap(emptyList())
                     return@launch
                 }
                 val wardInfos = try {
@@ -155,6 +177,7 @@ class GuardianActivity : AppCompatActivity() {
                 noWardsText.visibility = android.view.View.GONE
                 wardsRecyclerView.visibility = android.view.View.VISIBLE
                 wardsAdapter.submitList(wards)
+                updateWardsMap(wards)
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error loading wards", e)
                 Toast.makeText(this@GuardianActivity, "Error loading wards", Toast.LENGTH_SHORT).show()
@@ -165,15 +188,23 @@ class GuardianActivity : AppCompatActivity() {
     private fun showAlertDetails(alert: EmergencyAlert) {
         val ward = wardsAdapter.getCurrentList().find { it.id == alert.userId }
         val displayName = ward?.name?.takeIf { it.isNotBlank() } ?: ward?.email?.takeIf { it.isNotBlank() } ?: "Ward ${alert.userId.take(8)}"
-        val locationString = if (alert.location != null) "${alert.location.latitude}, ${alert.location.longitude}" else "Not available"
-        val builder = android.app.AlertDialog.Builder(this@GuardianActivity)
-            .setTitle("Emergency Alert: ${alert.alertType}")
-            .setMessage("From: $displayName\nTime: ${alert.timestamp?.toDate()}\nStatus: ${alert.status}\nLocation: $locationString")
-            .setPositiveButton("Mark as Resolved") { _, _ -> resolveAlert(alert.id) }
-        if (alert.location != null) {
-            builder.setNeutralButton("Track on map") { _, _ -> openLiveMap(alert.userId, displayName) }
+        val locFallback = if (alert.location != null) "${alert.location!!.latitude}, ${alert.location!!.longitude}" else "Not available"
+        lifecycleScope.launch {
+            val locationStr = if (alert.location != null) {
+                GeocodingHelper.getAddressFromLocation(this@GuardianActivity, alert.location!!) ?: locFallback
+            } else locFallback
+            if (isFinishing || isDestroyed) return@launch
+            runOnUiThread {
+                val builder = android.app.AlertDialog.Builder(this@GuardianActivity)
+                    .setTitle("Emergency Alert: ${alert.alertType}")
+                    .setMessage("From: $displayName\nTime: ${alert.timestamp?.toDate()}\nStatus: ${alert.status}\nLocation: $locationStr")
+                    .setPositiveButton("Mark as Resolved") { _, _ -> resolveAlert(alert.id) }
+                if (alert.location != null) {
+                    builder.setNeutralButton("Track on map") { _, _ -> openLiveMap(alert.userId, displayName) }
+                }
+                builder.setNegativeButton("Close", null).show()
+            }
         }
-        builder.setNegativeButton("Close", null).show()
     }
 
     private fun resolveAlert(alertId: String) {
@@ -186,6 +217,43 @@ class GuardianActivity : AppCompatActivity() {
                 Toast.makeText(this@GuardianActivity, "Failed to resolve alert", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun updateWardsMap(wards: List<Ward>) {
+        val map = wardsMapView ?: return
+        map.overlays.clear()
+        val withLocation = wards.filter { it.latestLocation != null }
+        if (withLocation.isEmpty()) {
+            wardsMapPlaceholder?.visibility = android.view.View.VISIBLE
+            map.controller?.setZoom(4.0)
+            map.controller?.setCenter(GeoPoint(20.0, 77.0))
+            map.invalidate()
+            return
+        }
+        wardsMapPlaceholder?.visibility = android.view.View.GONE
+        for (ward in withLocation) {
+            val loc = ward.latestLocation ?: continue
+            val marker = Marker(map, this@GuardianActivity).apply {
+                position = GeoPoint(loc.latitude, loc.longitude)
+                title = ward.name
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            }
+            map.overlays.add(marker)
+        }
+        val first = withLocation.first().latestLocation!!
+        map.controller?.setCenter(GeoPoint(first.latitude, first.longitude))
+        map.controller?.setZoom(if (withLocation.size == 1) 15.0 else 12.0)
+        map.invalidate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        wardsMapView?.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        wardsMapView?.onPause()
     }
 
     private fun viewWardDetails(wardId: String) {
@@ -219,10 +287,9 @@ class GuardianActivity : AppCompatActivity() {
                         else if (minutesAgo < 60) "$minutesAgo minutes ago"
                         else "${minutesAgo / 60} hours ago"
                     } else "Unknown"
-                    "Lat: ${String.format("%.6f", location.latitude)}\n" +
-                    "Lng: ${String.format("%.6f", location.longitude)}\n" +
-                    "Accuracy: ${location.accuracy.toInt()}m\n" +
-                    "Last updated: $timeAgo"
+                    val address = GeocodingHelper.getAddressFromLocation(this@GuardianActivity, location)
+                    val placeStr = address ?: "Lat: ${String.format("%.6f", location.latitude)}, Lng: ${String.format("%.6f", location.longitude)}"
+                    "$placeStr\nAccuracy: ${location.accuracy.toInt()}m\nLast updated: $timeAgo"
                 } else {
                     "Location not available"
                 }
@@ -257,11 +324,15 @@ class GuardianActivity : AppCompatActivity() {
                     return@launch
                 }
                 
-                val locationText = locations.take(10).joinToString("\n\n") { loc ->
+                val locationLines = mutableListOf<String>()
+                for (loc in locations.take(10)) {
                     val time = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
                         .format(java.util.Date(loc.timestamp))
-                    "$time\nLat: ${String.format("%.6f", loc.latitude)}, Lng: ${String.format("%.6f", loc.longitude)}\nAccuracy: ${loc.accuracy.toInt()}m"
+                    val address = GeocodingHelper.getAddressFromLocation(this@GuardianActivity, loc)
+                    val placeStr = address ?: "Lat: ${String.format("%.6f", loc.latitude)}, Lng: ${String.format("%.6f", loc.longitude)}"
+                    locationLines.add("$time\n$placeStr\nAccuracy: ${loc.accuracy.toInt()}m")
                 }
+                val locationText = locationLines.joinToString("\n\n")
                 
                 androidx.appcompat.app.AlertDialog.Builder(this@GuardianActivity)
                     .setTitle("Location History: $wardName")

@@ -12,8 +12,11 @@ import com.google.android.material.button.MaterialButton
 import com.zonezapapp.R
 import com.zonezapapp.api.AuthManager
 import com.zonezapapp.services.EmergencyService
+import com.zonezapapp.services.GeocodingHelper
 import com.zonezapapp.services.LocationService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PanicActivity : AppCompatActivity() {
     private lateinit var locationText: TextView
@@ -52,9 +55,10 @@ class PanicActivity : AppCompatActivity() {
     private fun loadLocation() {
         lifecycleScope.launch {
             try {
-                val location = locationService.getCurrentLocation()
+                val location = withContext(Dispatchers.IO) { locationService.getCurrentLocation() }
                 location?.let {
-                    locationText.text = "${String.format("%.6f", it.latitude)}, ${String.format("%.6f", it.longitude)}"
+                    val address = GeocodingHelper.getAddressFromLocation(this@PanicActivity, it)
+                    locationText.text = address ?: "${String.format("%.6f", it.latitude)}, ${String.format("%.6f", it.longitude)}"
                 } ?: run {
                     locationText.text = "Location unavailable"
                 }

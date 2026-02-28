@@ -23,6 +23,7 @@ import com.zonezapapp.api.MovementLogRequest
 import com.zonezapapp.data.LocationData
 import com.zonezapapp.data.Reminder
 import com.zonezapapp.services.EmergencyService
+import com.zonezapapp.services.GeocodingHelper
 import com.zonezapapp.services.LocationService
 import com.zonezapapp.services.ReminderService
 import com.zonezapapp.ui.login.LoginActivity
@@ -153,9 +154,18 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun updateLocationUI(location: LocationData) {
-        locationText.text = "Lat: ${String.format("%.6f", location.latitude)}\n" +
+        val coordsFallback = "Lat: ${String.format("%.6f", location.latitude)}\n" +
                 "Lng: ${String.format("%.6f", location.longitude)}\n" +
                 "Accuracy: ${location.accuracy.toInt()}m"
+        locationText.text = coordsFallback
+        lifecycleScope.launch {
+            val address = GeocodingHelper.getAddressFromLocation(this@HomeActivity, location)
+            if (!isFinishing && !isDestroyed) {
+                locationText.text = if (address != null) {
+                    "$address\nAccuracy: ${location.accuracy.toInt()}m"
+                } else coordsFallback
+            }
+        }
     }
 
     private fun logLocationToFirestore(location: LocationData) {

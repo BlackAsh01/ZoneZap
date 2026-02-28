@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.zonezapapp.R
 import com.zonezapapp.data.LocationData
+import com.zonezapapp.services.GeocodingHelper
 import com.zonezapapp.services.WardLocationService
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -47,7 +48,8 @@ class WardLiveMapActivity : AppCompatActivity() {
         mapView = mv
         mv.setTileSource(TileSourceFactory.MAPNIK)
         mv.setMultiTouchControls(true)
-        mv.controller?.setZoom(16.0)
+        mv.controller?.setZoom(14.0)
+        mv.controller?.setCenter(GeoPoint(20.0, 77.0))
         wardMarker = Marker(mv, this).apply {
             title = wardName
             position = GeoPoint(0.0, 0.0) // updated when location is fetched
@@ -108,8 +110,13 @@ class WardLiveMapActivity : AppCompatActivity() {
         val map = mapView ?: return
         val geoPoint = GeoPoint(location.latitude, location.longitude)
         wardMarker?.position = geoPoint
-        wardMarker?.snippet = "Accuracy: ${location.accuracy.toInt()}m"
         wardMarker?.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+        lifecycleScope.launch {
+            val address = GeocodingHelper.getAddressFromLocation(this@WardLiveMapActivity, location)
+            wardMarker?.snippet = address ?: "Accuracy: ${location.accuracy.toInt()}m"
+            map.invalidate()
+        }
+        wardMarker?.snippet = "Accuracy: ${location.accuracy.toInt()}m"
         map.invalidate()
 
         val prev = lastGeoPoint
