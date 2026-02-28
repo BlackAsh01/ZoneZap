@@ -2,6 +2,8 @@ package com.zonezapapp.services
 
 import com.google.firebase.Timestamp
 import com.zonezapapp.api.ApiClient
+import com.zonezapapp.api.AlertLocation
+import com.zonezapapp.api.CreateAlertRequest
 import com.zonezapapp.data.EmergencyAlert
 import com.zonezapapp.data.LocationData
 import kotlinx.coroutines.Dispatchers
@@ -12,12 +14,15 @@ import java.util.Locale
 class EmergencyService {
     private fun parseCreatedAt(iso: String?): Timestamp? {
         if (iso.isNullOrBlank()) return null
+        // Normalize: API returns e.g. "2026-02-28T20:35:23.82481+00:00" (variable fractional seconds, +00:00)
+        var normalized = iso.replace("+00:00", "Z")
+        // Reduce fractional seconds to exactly 3 digits (millis) for SimpleDateFormat
+        normalized = Regex("""\.(\d+)Z$""").replace(normalized) { ".${it.groupValues[1].padEnd(3, '0').take(3)}Z" }
         return try {
-            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-            format.parse(iso)?.let { Timestamp(it) }
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).parse(normalized)?.let { Timestamp(it) }
         } catch (_: Exception) {
             try {
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).parse(iso)?.let { Timestamp(it) }
+                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).parse(normalized)?.let { Timestamp(it) }
             } catch (_: Exception) { null }
         }
     }
@@ -29,18 +34,13 @@ class EmergencyService {
         location: LocationData?,
         additionalData: Map<String, Any> = emptyMap()
     ): String {
-        val body = mutableMapOf<String, Any>(
-            "userId" to userId,
-            "alertType" to alertType
+        val body = CreateAlertRequest(
+            userId = userId,
+            alertType = alertType,
+            location = location?.let {
+                AlertLocation(latitude = it.latitude, longitude = it.longitude, accuracy = it.accuracy)
+            }
         )
-        location?.let {
-            body["location"] = mapOf(
-                "latitude" to it.latitude,
-                "longitude" to it.longitude,
-                "accuracy" to it.accuracy
-            )
-        }
-        additionalData.forEach { (k, v) -> body[k] = v }
         val res = withContext(Dispatchers.IO) { api.createAlert(body) }
         return res.id
     }

@@ -31,11 +31,15 @@ interface ZoneZapApi {
     @GET("api/guardians/wards")
     suspend fun getGuardianWards(): List<WardInfo>
 
+    /** Fallback when /api/guardians/wards is not available: get one ward's name/email by id (guardian auth). */
+    @GET("api/users/{id}")
+    suspend fun getWardUser(@Path("id") wardId: String): WardInfo
+
     @GET("api/alerts")
     suspend fun getAlerts(@Query("user_id") userId: String? = null, @Query("status") status: String? = null): List<AlertResponse>
 
     @POST("api/alerts")
-    suspend fun createAlert(@Body body: Map<String, Any>): AlertResponse
+    suspend fun createAlert(@Body body: CreateAlertRequest): AlertResponse
 
     @PATCH("api/alerts/{id}")
     suspend fun updateAlert(@Path("id") id: String, @Body body: Map<String, Any>): AlertResponse
@@ -50,7 +54,7 @@ interface ZoneZapApi {
     suspend fun getReminders(@Query("user_id") userId: String? = null): List<ReminderResponse>
 
     @POST("api/reminders")
-    suspend fun createReminder(@Body body: Map<String, Any>): ReminderResponse
+    suspend fun createReminder(@Body body: CreateReminderRequest): ReminderResponse
 
     @PATCH("api/reminders/{id}")
     suspend fun updateReminder(@Path("id") id: String, @Body body: Map<String, Any>): ReminderResponse

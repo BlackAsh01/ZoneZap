@@ -37,6 +37,19 @@ data class ApiUser(
     @SerializedName("fcm_token") val fcmToken: String? = null
 )
 
+/** Request body for POST api/alerts (emergency/panic). */
+data class CreateAlertRequest(
+    @SerializedName("userId") val userId: String,
+    @SerializedName("alertType") val alertType: String = "PANIC",
+    val location: AlertLocation?
+)
+
+data class AlertLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float = 0f
+)
+
 data class AlertResponse(
     val id: String,
     @SerializedName("user_id") val userId: String,
@@ -46,6 +59,16 @@ data class AlertResponse(
     val longitude: Double?,
     val status: String?,
     @SerializedName("created_at") val createdAt: String?
+)
+
+/** Request body for POST api/reminders (guardian creating for ward or user creating for self). */
+data class CreateReminderRequest(
+    @SerializedName("user_id") val userId: String,
+    val title: String,
+    val description: String? = null,
+    @SerializedName("scheduled_time") val scheduledTime: Long,
+    val type: String = "GENERAL",
+    @SerializedName("created_by") val createdBy: String? = null
 )
 
 data class ReminderResponse(

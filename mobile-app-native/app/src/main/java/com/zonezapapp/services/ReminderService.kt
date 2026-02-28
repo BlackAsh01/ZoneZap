@@ -2,6 +2,7 @@ package com.zonezapapp.services
 
 import com.google.firebase.Timestamp
 import com.zonezapapp.api.ApiClient
+import com.zonezapapp.api.CreateReminderRequest
 import com.zonezapapp.api.ReminderResponse
 import com.zonezapapp.data.Reminder
 import kotlinx.coroutines.Dispatchers
@@ -52,14 +53,14 @@ class ReminderService {
     }
 
     suspend fun createReminder(userId: String, reminder: Reminder, createdBy: String? = null): String {
-        val body = mutableMapOf<String, Any>(
-            "user_id" to userId,
-            "title" to reminder.title,
-            "description" to (reminder.description.ifEmpty { "" }),
-            "scheduled_time" to (reminder.scheduledTime?.toDate()?.time ?: System.currentTimeMillis()),
-            "type" to reminder.type
+        val body = CreateReminderRequest(
+            userId = userId,
+            title = reminder.title,
+            description = reminder.description.ifEmpty { null },
+            scheduledTime = reminder.scheduledTime?.toDate()?.time ?: System.currentTimeMillis(),
+            type = reminder.type,
+            createdBy = createdBy
         )
-        if (createdBy != null) body["created_by"] = createdBy
         val res = withContext(Dispatchers.IO) { api.createReminder(body) }
         return res.id
     }

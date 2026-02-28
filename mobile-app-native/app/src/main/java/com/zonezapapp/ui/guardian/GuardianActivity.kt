@@ -29,6 +29,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+private fun formatAlertTime(timestamp: Timestamp?): String {
+    if (timestamp == null) return "Unknown time"
+    return try {
+        SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(timestamp.toDate())
+    } catch (_: Exception) { "Unknown time" }
+}
 
 class GuardianActivity : AppCompatActivity() {
     private lateinit var alertsRecyclerView: RecyclerView
@@ -101,7 +110,14 @@ class GuardianActivity : AppCompatActivity() {
                     val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
                     wardInfos.associate { it.id to (it.name?.takeIf { n -> n.isNotBlank() } ?: it.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${it.id.take(8)}") }
                 } catch (e: HttpException) {
-                    if (e.code() == 404) wardIds.associateWith { "Ward ${it.take(8)}" } else throw e
+                    if (e.code() == 404) {
+                        wardIds.associate { id ->
+                            id to (try {
+                                val info = withContext(Dispatchers.IO) { ApiClient.api().getWardUser(id) }
+                                info.name?.takeIf { n -> n.isNotBlank() } ?: info.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${id.take(8)}"
+                            } catch (_: Exception) { "Ward ${id.take(8)}" })
+                        }
+                    } else throw e
                 }
                 if (alerts.isEmpty()) {
                     noAlertsText.text = "No active alerts"
@@ -140,8 +156,12 @@ class GuardianActivity : AppCompatActivity() {
                     withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
                 } catch (e: HttpException) {
                     if (e.code() == 404) {
-                        // Endpoint not deployed yet; use ids only with placeholder names
-                        wardIds.map { id -> WardInfo(id = id, name = null, email = null) }
+                        // Fallback: fetch each ward's name/email from GET /api/users/{id}
+                        wardIds.map { id ->
+                            try {
+                                withContext(Dispatchers.IO) { ApiClient.api().getWardUser(id) }
+                            } catch (_: Exception) { WardInfo(id = id, name = null, email = null) }
+                        }
                     } else throw e
                 }
                 val wards = (if (wardInfos.isEmpty()) wardIds.map { id -> WardInfo(id = id, name = null, email = null) } else wardInfos).map { info ->
@@ -175,7 +195,7 @@ class GuardianActivity : AppCompatActivity() {
             runOnUiThread {
                 val builder = android.app.AlertDialog.Builder(this@GuardianActivity)
                     .setTitle("Emergency Alert: ${alert.alertType}")
-                    .setMessage("From: $displayName\nTime: ${alert.timestamp?.toDate()}\nStatus: ${alert.status}\nLocation: $locationStr")
+                    .setMessage("From: $displayName\nTime: ${formatAlertTime(alert.timestamp)}\nStatus: ${alert.status}\nLocation: $locationStr")
                     .setPositiveButton("Mark as Resolved") { _, _ -> resolveAlert(alert.id) }
                 if (alert.location != null) {
                     builder.setNeutralButton("Track on map") { _, _ -> openLiveMap(alert.userId, displayName) }
@@ -480,7 +500,7 @@ class AlertsAdapter(
         val alert = alerts[position]
         val userName = userIdToNameMap[alert.userId] ?: alert.userId
         holder.titleText.text = "${alert.alertType} - $userName"
-        holder.subtitleText.text = alert.timestamp?.toDate()?.toString() ?: "Unknown time"
+        holder.subtitleText.text = formatAlertTime(alert.timestamp)
         holder.itemView.setOnClickListener {
             onAlertClick(alert)
         }
