@@ -21,7 +21,7 @@ object GeocodingHelper {
                 @Suppress("DEPRECATION")
                 val addresses = geocoder.getFromLocation(latitude, longitude, 1)
                 val address = addresses?.firstOrNull() ?: return@withContext null
-                formatAddress(address)
+                formatAddress(address).takeIf { it.isNotBlank() }
             } catch (e: Exception) {
                 android.util.Log.w("GeocodingHelper", "Reverse geocode failed", e)
                 null
@@ -43,6 +43,6 @@ object GeocodingHelper {
         if (parts.isEmpty()) {
             address.getAddressLine(0)?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
         }
-        return parts.distinct().joinToString(", ").takeIf { it.isNotBlank() }
+        return parts.distinct().joinToString(", ").takeIf { it.isNotBlank() } ?: ""
     }
 }

@@ -50,6 +50,11 @@ class RemindersActivity : AppCompatActivity() {
         loadReminders()
     }
 
+    override fun onResume() {
+        super.onResume()
+        loadReminders()
+    }
+
     private fun loadReminders() {
         val userId = AuthManager.getUserId() ?: return
         lifecycleScope.launch {

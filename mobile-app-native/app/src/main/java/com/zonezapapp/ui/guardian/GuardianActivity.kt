@@ -26,11 +26,6 @@ import com.zonezapapp.services.WardLocationService
 import com.zonezapapp.ui.login.LoginActivity
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
-import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -40,9 +35,7 @@ class GuardianActivity : AppCompatActivity() {
     private lateinit var wardsRecyclerView: RecyclerView
     private lateinit var noAlertsText: TextView
     private lateinit var noWardsText: TextView
-    private var wardsMapView: MapView? = null
-    private var wardsMapPlaceholder: TextView? = null
-    
+
     private val alertsAdapter = AlertsAdapter { alert ->
         showAlertDetails(alert)
     }
@@ -55,8 +48,6 @@ class GuardianActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Configuration.getInstance().load(this, getPreferences(MODE_PRIVATE))
-        Configuration.getInstance().userAgentValue = packageName
         setContentView(R.layout.activity_guardian)
 
         // Check authentication
@@ -84,19 +75,8 @@ class GuardianActivity : AppCompatActivity() {
         alertsRecyclerView.layoutManager = LinearLayoutManager(this)
         alertsRecyclerView.adapter = alertsAdapter
 
-        wardsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        wardsRecyclerView.layoutManager = LinearLayoutManager(this)
         wardsRecyclerView.adapter = wardsAdapter
-
-        wardsMapView = findViewById(R.id.wardsMapView)
-        wardsMapPlaceholder = findViewById(R.id.wardsMapPlaceholder)
-        wardsMapView?.apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            controller?.setZoom(4.0)
-            controller?.setCenter(GeoPoint(20.0, 77.0))
-            setClickable(true)
-            setFocusable(true)
-        }
 
         findViewById<MaterialButton>(R.id.logoutButton).setOnClickListener {
             logout()
@@ -154,7 +134,6 @@ class GuardianActivity : AppCompatActivity() {
                     noWardsText.text = "No wards assigned to you"
                     noWardsText.visibility = android.view.View.VISIBLE
                     wardsRecyclerView.visibility = android.view.View.GONE
-                    updateWardsMap(emptyList())
                     return@launch
                 }
                 val wardInfos = try {
@@ -177,7 +156,6 @@ class GuardianActivity : AppCompatActivity() {
                 noWardsText.visibility = android.view.View.GONE
                 wardsRecyclerView.visibility = android.view.View.VISIBLE
                 wardsAdapter.submitList(wards)
-                updateWardsMap(wards)
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error loading wards", e)
                 Toast.makeText(this@GuardianActivity, "Error loading wards", Toast.LENGTH_SHORT).show()
@@ -219,41 +197,12 @@ class GuardianActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateWardsMap(wards: List<Ward>) {
-        val map = wardsMapView ?: return
-        map.overlays.clear()
-        val withLocation = wards.filter { it.latestLocation != null }
-        if (withLocation.isEmpty()) {
-            wardsMapPlaceholder?.visibility = android.view.View.VISIBLE
-            map.controller?.setZoom(4.0)
-            map.controller?.setCenter(GeoPoint(20.0, 77.0))
-            map.invalidate()
-            return
-        }
-        wardsMapPlaceholder?.visibility = android.view.View.GONE
-        for (ward in withLocation) {
-            val loc = ward.latestLocation ?: continue
-            val marker = Marker(map, this@GuardianActivity).apply {
-                position = GeoPoint(loc.latitude, loc.longitude)
-                title = ward.name
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            }
-            map.overlays.add(marker)
-        }
-        val first = withLocation.first().latestLocation!!
-        map.controller?.setCenter(GeoPoint(first.latitude, first.longitude))
-        map.controller?.setZoom(if (withLocation.size == 1) 15.0 else 12.0)
-        map.invalidate()
-    }
-
     override fun onResume() {
         super.onResume()
-        wardsMapView?.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        wardsMapView?.onPause()
+        if (AuthManager.isLoggedIn()) {
+            loadWards()
+            loadAlerts()
+        }
     }
 
     private fun viewWardDetails(wardId: String) {
@@ -294,20 +243,32 @@ class GuardianActivity : AppCompatActivity() {
                     "Location not available"
                 }
                 
-                val options = arrayOf("Track on map", "Add Reminder", "View location history", "Close")
-                androidx.appcompat.app.AlertDialog.Builder(this@GuardianActivity)
+                val linear = android.widget.LinearLayout(this@GuardianActivity).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    setPadding(48, 24, 48, 16)
+                    addView(android.widget.TextView(this@GuardianActivity).apply {
+                        text = "Email: ${ward.email}\n\nLocation:\n$locationText"
+                        setPadding(0, 0, 0, 24)
+                        textSize = 14f
+                    })
+                    val lp = android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 }
+                    addView(com.google.android.material.button.MaterialButton(this@GuardianActivity).apply { id = android.view.View.generateViewId(); text = "Track on map" }, lp)
+                    addView(com.google.android.material.button.MaterialButton(this@GuardianActivity).apply { id = android.view.View.generateViewId(); text = "Add Reminder" }, lp)
+                    addView(com.google.android.material.button.MaterialButton(this@GuardianActivity).apply { id = android.view.View.generateViewId(); text = "View location history" }, lp)
+                }
+                val scroll = android.widget.ScrollView(this@GuardianActivity).apply { addView(linear) }
+                val dialog = androidx.appcompat.app.AlertDialog.Builder(this@GuardianActivity)
                     .setTitle("Ward: ${ward.name}")
-                    .setMessage("Email: ${ward.email}\n\nLocation:\n$locationText")
-                    .setItems(options) { _, which ->
-                        when (which) {
-                            0 -> openLiveMap(wardId, ward.name)
-                            1 -> showAddReminderForWardDialog(wardId)
-                            2 -> showLocationHistory(wardId, ward.name)
-                            // 3 = Close (dismiss)
-                        }
-                    }
+                    .setView(scroll)
                     .setNegativeButton("Close", null)
-                    .show()
+                    .create()
+                val trackBtn = linear.getChildAt(1) as? com.google.android.material.button.MaterialButton
+                val reminderBtn = linear.getChildAt(2) as? com.google.android.material.button.MaterialButton
+                val historyBtn = linear.getChildAt(3) as? com.google.android.material.button.MaterialButton
+                trackBtn?.setOnClickListener { openLiveMap(wardId, ward.name); dialog.dismiss() }
+                reminderBtn?.setOnClickListener { showAddReminderForWardDialog(wardId); dialog.dismiss() }
+                historyBtn?.setOnClickListener { showLocationHistory(wardId, ward.name); dialog.dismiss() }
+                dialog.show()
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error showing ward details", e)
                 Toast.makeText(this@GuardianActivity, "Error loading ward details", Toast.LENGTH_SHORT).show()

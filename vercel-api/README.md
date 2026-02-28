@@ -26,6 +26,8 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 4. Deploy. Your API URL will be `https://your-project.vercel.app`.
 5. In the Android app set the API base URL to this URL (e.g. in BuildConfig or `ApiConfig.BASE_URL`).
 
+**If the Guardian app shows only one ward or "Ward &lt;id&gt;" placeholders:** Redeploy the Vercel project so `GET /api/guardians/wards` is live (the route is in `pages/api/guardians/wards.js`). Until then, the app falls back to ward IDs from `/api/users/me` and shows all linked wards with placeholder names.
+
 ## Cron (overdue reminders)
 
 - On **Vercel Pro**, the `vercel.json` cron runs every 5 minutes.
@@ -41,6 +43,7 @@ Backend for the ZoneZap Android app when using Vercel instead of Firebase.
 | PATCH | /api/users/me | Bearer | Update name, fcm_token |
 | GET  | /api/users/by-email?email= | Bearer | Find user by email (type=user) |
 | POST | /api/guardians/link | Bearer (guardian) | body: ward_email or ward_id |
+| GET | /api/guardians/wards | Bearer (guardian) | List wards with id, name, email (required for Guardian dashboard ward names and multiple wards) |
 | GET/POST | /api/alerts | Bearer | List / create alert (FCM to guardians) |
 | PATCH | /api/alerts/[id] | Bearer | Update status |
 | GET/POST | /api/movement-logs | Bearer | List / log (POST runs anomaly → WANDERING + FCM) |

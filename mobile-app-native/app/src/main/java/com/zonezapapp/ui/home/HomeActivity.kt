@@ -69,6 +69,11 @@ class HomeActivity : AppCompatActivity() {
         loadReminders()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (AuthManager.isLoggedIn()) loadReminders()
+    }
+
     private fun setupViews() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
