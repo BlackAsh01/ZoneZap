@@ -106,19 +106,13 @@ class GuardianActivity : AppCompatActivity() {
                     return@launch
                 }
                 val alerts = emergencyService.getAlertsForWards(wardIds)
-                val userIdToNameMap = try {
-                    val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
-                    wardInfos.associate { it.id to (it.name?.takeIf { n -> n.isNotBlank() } ?: it.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${it.id.take(8)}") }
+                val wardInfosForNames = try {
+                    val list = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                    if (list.isNotEmpty()) list else fetchWardInfosById(wardIds)
                 } catch (e: HttpException) {
-                    if (e.code() == 404) {
-                        wardIds.associate { id ->
-                            id to (try {
-                                val info = withContext(Dispatchers.IO) { ApiClient.api().getWardUser(id) }
-                                info.name?.takeIf { n -> n.isNotBlank() } ?: info.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${id.take(8)}"
-                            } catch (_: Exception) { "Ward ${id.take(8)}" })
-                        }
-                    } else throw e
+                    if (e.code() == 404) fetchWardInfosById(wardIds) else throw e
                 }
+                val userIdToNameMap = wardInfosForNames.associate { it.id to (it.name?.takeIf { n -> n.isNotBlank() } ?: it.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${it.id.take(8)}") }
                 if (alerts.isEmpty()) {
                     noAlertsText.text = "No active alerts"
                     noAlertsText.visibility = android.view.View.VISIBLE
@@ -132,6 +126,18 @@ class GuardianActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error loading alerts", e)
                 Toast.makeText(this@GuardianActivity, "Error loading alerts", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** Resolve ward id, name, email via GET /api/users/{id} for each ward (used when guardians/wards is unavailable). */
+    private suspend fun fetchWardInfosById(wardIds: List<String>): List<WardInfo> = withContext(Dispatchers.IO) {
+        wardIds.map { id ->
+            try {
+                ApiClient.api().getWardUser(id)
+            } catch (e: Exception) {
+                android.util.Log.w("GuardianActivity", "getWardUser(${id.take(8)}...) failed: ${e.message}")
+                WardInfo(id = id, name = null, email = null)
             }
         }
     }
@@ -152,21 +158,12 @@ class GuardianActivity : AppCompatActivity() {
                     wardsRecyclerView.visibility = android.view.View.GONE
                     return@launch
                 }
+                // Prefer batch GET /api/guardians/wards; otherwise resolve each ward's name via GET /api/users/{id}
                 val wardInfos = try {
-                    withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                    val list = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                    if (list.isNotEmpty()) list else fetchWardInfosById(wardIds)
                 } catch (e: HttpException) {
-                    if (e.code() == 404) {
-                        // Fallback: fetch each ward's name/email from GET /api/users/{id}
-                        android.util.Log.w("GuardianActivity", "getGuardianWards 404, using getWardUser fallback for ${wardIds.size} wards")
-                        wardIds.map { id ->
-                            try {
-                                withContext(Dispatchers.IO) { ApiClient.api().getWardUser(id) }
-                            } catch (e2: Exception) {
-                                android.util.Log.w("GuardianActivity", "getWardUser(${id.take(8)}...) failed: ${e2.message}")
-                                WardInfo(id = id, name = null, email = null)
-                            }
-                        }
-                    } else throw e
+                    if (e.code() == 404) fetchWardInfosById(wardIds) else throw e
                 }
                 val wards = (if (wardInfos.isEmpty()) wardIds.map { id -> WardInfo(id = id, name = null, email = null) } else wardInfos).map { info ->
                     val location = wardLocationService.getLatestWardLocation(info.id)
