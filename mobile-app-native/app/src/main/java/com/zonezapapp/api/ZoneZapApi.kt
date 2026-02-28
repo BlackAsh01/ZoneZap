@@ -26,7 +26,10 @@ interface ZoneZapApi {
     suspend fun getUserByEmail(@Query("email") email: String): ApiUser
 
     @POST("api/guardians/link")
-    suspend fun linkWard(@Body body: Map<String, Any>): Map<String, Any>
+    suspend fun linkWard(@Body body: LinkWardRequest): Map<String, Any>
+
+    @GET("api/guardians/wards")
+    suspend fun getGuardianWards(): List<WardInfo>
 
     @GET("api/alerts")
     suspend fun getAlerts(@Query("user_id") userId: String? = null, @Query("status") status: String? = null): List<AlertResponse>

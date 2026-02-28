@@ -12,6 +12,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputEditText
 import com.zonezapapp.R
+import com.zonezapapp.api.ApiClient
 import com.zonezapapp.api.AuthManager
 import com.zonezapapp.data.EmergencyAlert
 import com.zonezapapp.data.LocationData
@@ -22,7 +23,9 @@ import com.zonezapapp.services.UserService
 import com.zonezapapp.services.WardLocationService
 import com.zonezapapp.ui.login.LoginActivity
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
 class GuardianActivity : AppCompatActivity() {
@@ -92,7 +95,8 @@ class GuardianActivity : AppCompatActivity() {
                     return@launch
                 }
                 val alerts = emergencyService.getAlertsForWards(wardIds)
-                val userIdToNameMap = wardIds.associateWith { "Ward ${it.take(8)}" }
+                val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                val userIdToNameMap = wardInfos.associate { it.id to (it.name?.takeIf { n -> n.isNotBlank() } ?: it.email?.takeIf { e -> e.isNotBlank() } ?: "Ward ${it.id.take(8)}") }
                 if (alerts.isEmpty()) {
                     noAlertsText.text = "No active alerts"
                     noAlertsText.visibility = android.view.View.VISIBLE
@@ -113,33 +117,41 @@ class GuardianActivity : AppCompatActivity() {
     private fun loadWards() {
         lifecycleScope.launch {
             try {
-                val wardIds = AuthManager.getUser()?.wards ?: emptyList()
-                val wards = wardIds.map { wardId ->
-                    val location = wardLocationService.getLatestWardLocation(wardId)
-                    Ward(
-                        id = wardId,
-                        name = "Ward ${wardId.take(8)}",
-                        email = "",
-                        latestLocation = location
-                    )
+                // Refresh current user so we have latest wards list (e.g. after adding a ward)
+                val token = AuthManager.getToken()
+                if (!token.isNullOrBlank()) {
+                    val me = withContext(Dispatchers.IO) { ApiClient.api().getMe() }
+                    AuthManager.setAuth(token, me)
                 }
-                if (wards.isEmpty()) {
+                val wardInfos = withContext(Dispatchers.IO) { ApiClient.api().getGuardianWards() }
+                if (wardInfos.isEmpty()) {
                     noWardsText.text = "No wards assigned to you"
                     noWardsText.visibility = android.view.View.VISIBLE
                     wardsRecyclerView.visibility = android.view.View.GONE
-                } else {
-                    noWardsText.visibility = android.view.View.GONE
-                    wardsRecyclerView.visibility = android.view.View.VISIBLE
-                    wardsAdapter.submitList(wards)
+                    return@launch
                 }
+                val wards = wardInfos.map { info ->
+                    val location = wardLocationService.getLatestWardLocation(info.id)
+                    Ward(
+                        id = info.id,
+                        name = info.name?.takeIf { it.isNotBlank() } ?: info.email?.takeIf { it.isNotBlank() } ?: "Ward ${info.id.take(8)}",
+                        email = info.email ?: "",
+                        latestLocation = location
+                    )
+                }
+                noWardsText.visibility = android.view.View.GONE
+                wardsRecyclerView.visibility = android.view.View.VISIBLE
+                wardsAdapter.submitList(wards)
             } catch (e: Exception) {
                 android.util.Log.e("GuardianActivity", "Error loading wards", e)
+                Toast.makeText(this@GuardianActivity, "Error loading wards", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun showAlertDetails(alert: EmergencyAlert) {
-        val displayName = "Ward ${alert.userId.take(8)}"
+        val ward = wardsAdapter.getCurrentList().find { it.id == alert.userId }
+        val displayName = ward?.name?.takeIf { it.isNotBlank() } ?: ward?.email?.takeIf { it.isNotBlank() } ?: "Ward ${alert.userId.take(8)}"
         val locationString = if (alert.location != null) "${alert.location.latitude}, ${alert.location.longitude}" else "Not available"
         val builder = android.app.AlertDialog.Builder(this@GuardianActivity)
             .setTitle("Emergency Alert: ${alert.alertType}")
@@ -336,18 +348,23 @@ class GuardianActivity : AppCompatActivity() {
             Toast.makeText(this, "Please enter an email", Toast.LENGTH_SHORT).show()
             return
         }
+        android.util.Log.w("GuardianActivity", "Add ward: calling API with ward_email=$trimmedEmail")
         lifecycleScope.launch {
             try {
                 userService.addWardByEmail(trimmedEmail)
                 Toast.makeText(this@GuardianActivity, "Ward added successfully!", Toast.LENGTH_SHORT).show()
+                // Refresh guardian user (getMe) so wards list is up to date, then reload wards and their locations
                 loadWards()
             } catch (e: HttpException) {
-                val body = e.response()?.errorBody()?.string()
-                val msg = when (e.code()) {
+                val code = e.code()
+                val body = e.response()?.errorBody()?.string() ?: ""
+                val apiMsg = parseApiError(body)
+                android.util.Log.e("GuardianActivity", "Add ward failed: code=$code body=$body apiMsg=$apiMsg", e)
+                val msg = when (code) {
                     403 -> "Only guardian accounts can add wards."
-                    404 -> parseApiError(body) ?: "Ward not found. User must sign up as a ward (user) first."
-                    400 -> parseApiError(body) ?: "Invalid request. Check that the email is correct and the account is a ward (user)."
-                    else -> parseApiError(body) ?: "Failed to add ward (${e.code()})."
+                    404 -> apiMsg ?: "Ward not found. User must sign up as a ward (user) first."
+                    400 -> apiMsg ?: "Invalid request. Check that the email is correct and the account is a ward (user)."
+                    else -> apiMsg ?: "Failed to add ward ($code)."
                 }
                 Toast.makeText(this@GuardianActivity, msg, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {

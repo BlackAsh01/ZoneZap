@@ -2,6 +2,7 @@ package com.zonezapapp.services
 
 import com.zonezapapp.api.ApiClient
 import com.zonezapapp.api.AuthManager
+import com.zonezapapp.api.LinkWardRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -40,15 +41,17 @@ class UserService {
     /** Links the given ward (userId) to the current guardian. Throws on API error so caller can show the server message. */
     suspend fun addGuardianToUser(userId: String, guardianId: String): Boolean {
         withContext(Dispatchers.IO) {
-            api.linkWard(mapOf("ward_id" to userId))
+            api.linkWard(LinkWardRequest(wardId = userId))
         }
         return true
     }
 
     /** Links a ward by email (single API call; server looks up user). Use this when adding ward from email. */
     suspend fun addWardByEmail(wardEmail: String): Boolean {
+        val email = wardEmail.trim().lowercase()
+        android.util.Log.d("ZoneZap", "linkWard body: ward_email=$email")
         withContext(Dispatchers.IO) {
-            api.linkWard(mapOf("ward_email" to wardEmail.trim().lowercase()))
+            api.linkWard(LinkWardRequest(wardEmail = email))
         }
         return true
     }

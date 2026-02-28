@@ -16,6 +16,12 @@ data class LoginRequest(
     val password: String
 )
 
+/** Request body for POST api/guardians/link. Use ward_email or ward_id (server looks up by email if needed). */
+data class LinkWardRequest(
+    @SerializedName("ward_id") val wardId: String? = null,
+    @SerializedName("ward_email") val wardEmail: String? = null
+)
+
 data class LoginRegisterResponse(
     val token: String,
     val user: ApiUser
@@ -53,6 +59,13 @@ data class ReminderResponse(
     @SerializedName("created_by") val createdBy: String?,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("completed_at") val completedAt: String?
+)
+
+/** Ward summary returned by GET /api/guardians/wards */
+data class WardInfo(
+    val id: String,
+    val name: String?,
+    val email: String?
 )
 
 data class MovementLogResponse(

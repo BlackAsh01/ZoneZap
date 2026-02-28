@@ -5,6 +5,7 @@ export default function Home() {
     '/api/users/me (GET, PATCH)',
     '/api/users/by-email (GET)',
     '/api/guardians/link (POST)',
+    '/api/guardians/wards (GET)',
     '/api/alerts (GET, POST)',
     '/api/alerts/[id] (PATCH)',
     '/api/movement-logs (GET, POST)',
